@@ -49,6 +49,26 @@
                 window.seneschalNavBusy(true);
             }, true);
         })();
+        // A narrow window shows the sidebar as a rail that opens over the page, so the layout asks whether the window is narrow
+        window.seneschalNarrow = function () { return window.innerWidth < 800; };
+        // Ctrl+K goes to the tool search, Ctrl+J to the assistant, from any page
+        document.addEventListener('keydown', function (e) {
+            if (!(e.ctrlKey || e.metaKey) || e.altKey || e.shiftKey) return;
+            if (e.key === 'k') {
+                var input = document.querySelector('.tool-search input'), button = document.querySelector('.drawer-search button');
+                e.preventDefault();
+                if (input) input.focus(); else if (button) button.click();
+            } else if (e.key === 'j') {
+                e.preventDefault();
+                var launcher = document.getElementById('as-launch');
+                if (launcher) launcher.click(); else { var input = document.getElementById('as-input'); if (input) input.focus(); }
+            }
+        });
+        // A dialog takes the keyboard when it opens, so Esc closes it and Tab stays inside it (a field that asks for focus keeps it)
+        new MutationObserver(function () {
+            var d = document.querySelector('.mud-dialog');
+            if (d && !d.contains(document.activeElement)) { var f = d.querySelector('input:not([type=hidden]), textarea') || d; if (f === d) d.setAttribute('tabindex', '-1'); f.focus({ preventScroll: true }); }
+        }).observe(document.documentElement, { childList: true, subtree: true });
         // The chat keeps its newest line in view
         window.seneschalScrollEnd = function (id, force) {
             var el = document.getElementById(id);

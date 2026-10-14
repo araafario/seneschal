@@ -29,6 +29,8 @@ public static class EngineCli
           logs       Show the end of the log
           update     Look for a new version and install it (update --check only looks)
           extension new <Name> [folder]   Start a new extension project
+          dev        Show whether you can make extensions here (dev install adds the .NET SDK)
+          doctor     Check that everything Seneschal needs is in place and say what to fix
           version    Show the version
 
         Projects and containers it started keep running when it stops
@@ -74,6 +76,10 @@ public static class EngineCli
                 return await Update(args);
             case "extension":
                 return NewExtension(args);
+            case "dev":
+                return await Dev(args);
+            case "doctor":
+                return await Doctor();
             case "version" or "--version" or "-v":
                 Console.WriteLine($"Seneschal {EngineMode.Version}");
                 return 0;
@@ -201,6 +207,84 @@ public static class EngineCli
             Console.WriteLine(Versions.IsMajor(UpdateInstaller.Current, latest) ? $"Major update {latest.ToString(3)} available. Run seneschal update" : $"Update {latest.ToString(3)} available. Run seneschal update");
     }
 
+    /// <summary>One line per thing Seneschal needs, with ok, a note or a problem, and what to do about it. Exit code 1 when something is wrong.</summary>
+    private static async Task<int> Doctor()
+    {
+        var problems = 0;
+        void Line(string state, string what, string? fix = null)
+        {
+            Console.WriteLine($"  {state,-5} {what}");
+            if (fix is not null) Console.WriteLine($"        {fix}");
+            if (state == "FIX") problems++;
+        }
+
+        Console.WriteLine($"Seneschal {EngineMode.Version}");
+        Console.WriteLine();
+
+        var running = await Running();
+        if (running is null) Line("note", "It is not running", "Run seneschal start");
+        else Line("ok", $"Running at {running.Url}");
+
+        var data = Seneschal.Core.AppPaths.DataDir;
+        try
+        {
+            Directory.CreateDirectory(data);
+            var probe = Path.Combine(data, ".doctor");
+            File.WriteAllText(probe, "ok");
+            File.Delete(probe);
+            Line("ok", $"The data folder can be written ({data})");
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            Line("FIX", $"The data folder cannot be written ({data}): {ex.Message}", "Choose another with the SENESCHAL_DATA_DIR variable");
+        }
+
+        var claude = Seneschal.ClaudeChat.Find(null);
+        if (claude is null) Line("note", "Claude Code was not found, so the assistant panel cannot answer", "Install Claude Code and sign in, or set the path in Options, Assistant. Other MCP clients still work");
+        else Line("ok", $"Claude Code found ({claude})");
+
+        var sdk = Seneschal.Dev.DotnetSdk.Locate();
+        if (sdk is null) Line("note", "The .NET SDK is missing, so the developer tools are off", "Run seneschal dev install");
+        else Line("ok", $"The .NET SDK {sdk.Version} is installed");
+
+        if (File.Exists(Path.Combine(data, "mcp-secret.txt"))) Line("ok", "The MCP secret exists");
+        else Line("note", "The MCP secret is made the first time Seneschal runs");
+
+        Console.WriteLine();
+        Console.WriteLine(problems == 0 ? "Nothing needs fixing" : $"{problems} thing{(problems == 1 ? "" : "s")} to fix");
+        return problems == 0 ? 0 : 1;
+    }
+
+    /// <summary>Whether the .NET SDK is there, which is what making an extension needs. "dev install" puts it there.</summary>
+    private static async Task<int> Dev(string[] args)
+    {
+        var info = Seneschal.Dev.DotnetSdk.Locate();
+        if (args.Length > 1 && args[1].Equals("install", StringComparison.OrdinalIgnoreCase))
+        {
+            if (info is not null)
+            {
+                Console.WriteLine($"The .NET SDK {info.Version} is already installed ({info.Dotnet})");
+                return 0;
+            }
+
+            var result = await Seneschal.Dev.DotnetSdk.InstallAsync(Console.WriteLine);
+            Console.WriteLine(result.Message);
+            if (result.Ok) Console.WriteLine("Open a new terminal to use dotnet there. Seneschal notices it by itself");
+            return result.Ok ? 0 : 1;
+        }
+
+        if (info is null)
+        {
+            Console.WriteLine("The .NET SDK is not installed, so the developer tools are off");
+            Console.WriteLine("Run seneschal dev install to add it");
+            return 1;
+        }
+
+        Console.WriteLine($"The .NET SDK {info.Version} is installed ({info.Dotnet})");
+        Console.WriteLine("Ask the assistant: Help me create a new extension");
+        return 0;
+    }
+
     private static int NewExtension(string[] args)
     {
         if (args.Length < 3 || !args[1].Equals("new", StringComparison.OrdinalIgnoreCase))
@@ -221,7 +305,8 @@ public static class EngineCli
         Console.WriteLine();
         Console.WriteLine($"  cd {result.Folder}");
         Console.WriteLine("  dotnet build");
-        Console.WriteLine("Then import artifacts/packages/*.snx in the Extension Manager, or ask the assistant to help you build it");
+        Console.WriteLine("Then import artifacts/packages/*.snx in Options, Extensions, or ask the assistant to help you build it");
+        if (Seneschal.Dev.DotnetSdk.Locate() is null) Console.WriteLine("Building needs the .NET SDK: run seneschal dev install");
         return 0;
     }
 
@@ -358,8 +443,10 @@ public static class EngineCli
         var port = PickPort(int.TryParse(Environment.GetEnvironmentVariable("SENESCHAL_PORT"), out var chosen) ? chosen : PreferredPort);
         // Started through the shell, with everything as arguments. Starting it directly would hand it every handle this process holds, including the pipe
         // of whoever reads this command's output (a script, a build): they would wait for the engine to end before they saw the end of the output. The
-        // arguments win over the settings of a developer's own machine (such as Development in the environment), so the installed app always runs as itself
-        var start = new ProcessStartInfo(program, $"{EngineMode.Argument} --urls=http://localhost:{port} --environment=Production")
+        // arguments win over the settings of a developer's own machine (such as Development in the environment), so the installed app always runs as itself.
+        // A copy that runs from a checkout (a Seneschal.slnx above its folder: dev.ps1) runs as Development instead, which is what gives it the Developer page
+        var environment = Seneschal.Dev.DevMode.FindRepoRoot(AppContext.BaseDirectory) is not null ? "Development" : "Production";
+        var start = new ProcessStartInfo(program, $"{EngineMode.Argument} --urls=http://localhost:{port} --environment={environment}")
         {
             WorkingDirectory = AppContext.BaseDirectory,
             UseShellExecute = true,

@@ -3,6 +3,6 @@
   <Project Path="src/Seneschal.Sdk/Seneschal.Sdk.csproj" />
   <Project Path="src/Seneschal.Launcher/Seneschal.Launcher.csproj" />
   <Folder Name="/extensions/">
-    <Project Path="extensions/DevEnvironment/DevEnvironment.csproj" />
+    <Project Path="extensions/Calculator/Calculator.csproj" />
   </Folder>
 </Solution>

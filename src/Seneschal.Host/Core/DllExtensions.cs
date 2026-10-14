@@ -11,8 +11,8 @@ public sealed record ImportResult(bool Ok, string Message);
 /// <summary>
 /// The extensions of the running app. Those present at startup were loaded before the container was built (see
 /// <see cref="ExtensionStartup"/>) and are activated here. The user can also import a package while the app runs:
-/// an extension without services of its own goes live at once; one that registers services is written to disk and waits for
-/// a restart, because the container cannot take new services after it is built.
+/// an extension goes live at once. Its services are in a container of its own (see <see cref="ExtensionServiceHub"/>), so no extension needs the app
+/// to be restarted: a new version replaces the container, and the old one is disposed.
 /// Imported packages live in %AppData%/Seneschal/extensions/&lt;id&gt;/ and are loaded from memory, so their files are never locked.
 /// </summary>
 public sealed partial class DllExtensions
@@ -24,7 +24,7 @@ public sealed partial class DllExtensions
     private readonly List<DllExtension> _loaded = [];
     private readonly List<FailedExtension> _failed = [];
     private readonly HashSet<string> _pendingRestart = new(StringComparer.OrdinalIgnoreCase);
-    // Pending extensions that are a dev build (nothing was imported, so there is nothing to remove from the Extension Manager)
+    // Pending extensions that are a dev build (nothing was imported, so there is nothing to remove in Options)
     private readonly HashSet<string> _pendingDev = new(StringComparer.OrdinalIgnoreCase);
     // The runtime unloads a collectible context once nothing references it, so each one is held here until its extension goes away.
     private readonly Dictionary<string, LoadedExtension> _active = new(StringComparer.OrdinalIgnoreCase);
@@ -32,17 +32,17 @@ public sealed partial class DllExtensions
     private readonly ExtensionSettings _settings;
     private readonly ExtensionStartup _startup;
     private readonly ExtensionAssets _assets;
-    private readonly IServiceProvider _services;
+    private readonly ExtensionServiceHub _hub;
 
     public event Action? Changed;
 
-    public DllExtensions(IToolRegistry registry, ExtensionSettings settings, ExtensionStartup startup, ExtensionAssets assets, IServiceProvider services)
+    public DllExtensions(IToolRegistry registry, ExtensionSettings settings, ExtensionStartup startup, ExtensionAssets assets, ExtensionServiceHub hub)
     {
         _registry = registry;
         _settings = settings;
         _startup = startup;
         _assets = assets;
-        _services = services;
+        _hub = hub;
     }
 
     public IReadOnlyList<DllExtension> Loaded
@@ -123,17 +123,9 @@ public sealed partial class DllExtensions
                 var collected = loaded.CollectServices();
                 ExtensionStartup.RejectAppServices(collected);
                 loaded.HasServices = collected.Count > 0;
+                loaded.Services = collected;
 
                 var note = BundledNote(package);
-                if (loaded.HasServices || existing?.HasServices == true)
-                {
-                    // Services belong to the container, which is already built: keep the files, and let a restart activate them
-                    package.WriteTo(folder);
-                    loaded.Context.Unload();
-                    lock (_gate) _pendingRestart.Add(id);
-                    Changed?.Invoke();
-                    return new ImportResult(true, $"{(existing is null ? "Imported" : "Updated")} {loaded.Name}\nIt registers its own services{note}");
-                }
 
                 // Register the tools first (that validates the extension), then put the files in place, and only then publish
                 // the stylesheets and tell the extension it has started: both need the files to exist.
@@ -202,8 +194,8 @@ public sealed partial class DllExtensions
             {
                 _loaded.RemoveAll(e => e.Name.Equals(name, StringComparison.OrdinalIgnoreCase));
                 _active.Remove(loaded.Name, out active);
-                if (loaded.HasServices) _pendingRestart.Add(loaded.Name);
             }
+            _hub.Remove(loaded.Name);
             _registry.Unregister(loaded.ToolIds);
             _assets.Remove(loaded.Name);
             foreach (var id in loaded.ToolIds) _settings.SetEnabled(id, true); // forget the old on/off choice
@@ -211,14 +203,12 @@ public sealed partial class DllExtensions
         }
         if (waiting) lock (_gate) _pendingRestart.Remove(name);
         Changed?.Invoke();
-        return new ImportResult(true, loaded?.HasServices == true
-            ? $"Removed {name}\nRestart to finish removing its services"
-            : $"Removed '{name}'.");
+        return new ImportResult(true, $"Removed '{name}'.");
     }
 
     /// <summary>
     /// Loads, or reloads, an extension from a folder the Developer page just built, as a dev extension. One without services of its
-    /// own goes live at once; one with services (or one that was loaded another way) waits for a restart.
+    /// own goes live at once, with or without services. Only one that replaces a copy that ships with the app waits for a restart.
     /// </summary>
     public ImportResult LoadDev(string folder)
     {
@@ -231,7 +221,7 @@ public sealed partial class DllExtensions
             DllExtension? existing;
             lock (_gate) existing = _loaded.FirstOrDefault(e => e.Name.Equals(id, StringComparison.OrdinalIgnoreCase));
             if (existing is { Origin: ExtensionSource.Installed })
-                throw new ExtensionException($"'{id}' is also installed from a package. Remove the installed copy in the Extension Manager first.");
+                throw new ExtensionException($"'{id}' is also installed from a package. Remove the installed copy in Options, Extensions first.");
 
             var loaded = ExtensionLoader.Load(package, folder, ExtensionSource.Dev, id);
             try
@@ -239,10 +229,10 @@ public sealed partial class DllExtensions
                 var collected = loaded.CollectServices();
                 ExtensionStartup.RejectAppServices(collected);
                 loaded.HasServices = collected.Count > 0;
+                loaded.Services = collected;
 
                 string? why = null;
-                if (loaded.HasServices || existing?.HasServices == true) why = "It registers its own services";
-                else if (existing is { Origin: not ExtensionSource.Dev }) why = "The running app uses the copy that ships with it";
+                if (existing is { Origin: not ExtensionSource.Dev }) why = "The running app uses the copy that ships with it";
                 if (why is not null)
                 {
                     loaded.Context.Unload();
@@ -250,6 +240,7 @@ public sealed partial class DllExtensions
                     {
                         _pendingRestart.Add(id);
                         _pendingDev.Add(id);
+                        _failed.RemoveAll(e => e.Name.Equals(id, StringComparison.OrdinalIgnoreCase));
                     }
                     Changed?.Invoke();
                     return new ImportResult(true, "");
@@ -274,7 +265,56 @@ public sealed partial class DllExtensions
         }
     }
 
-    /// <summary>Hides a dev extension's tools and releases it (the project was deleted). One with services lingers until a restart.</summary>
+    /// <summary>
+    /// Deletes the staged folder of a dev build (or of one that failed to load) and unloads it. A dev build is output, so building again brings it
+    /// back. Only a folder inside a dev folder is ever deleted.
+    /// </summary>
+    public ImportResult RemoveDevBuild(string name)
+    {
+        DllExtension? loaded;
+        FailedExtension? failed;
+        lock (_gate)
+        {
+            loaded = _loaded.FirstOrDefault(e => e.Name.Equals(name, StringComparison.OrdinalIgnoreCase));
+            failed = _failed.FirstOrDefault(e => e.Name.Equals(name, StringComparison.OrdinalIgnoreCase));
+        }
+
+        var isDev = loaded?.Origin == ExtensionSource.Dev || (loaded is null && failed?.Origin == ExtensionSource.Dev);
+        var folder = loaded?.Folder ?? failed?.Folder;
+        if (!isDev || folder is null) return new ImportResult(false, $"'{name}' is not a dev build.");
+
+        var full = Path.GetFullPath(folder).TrimEnd(Path.DirectorySeparatorChar);
+        var inside = _startup.CurrentDevFolders().Any(root =>
+            full.StartsWith(Path.GetFullPath(root).TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase));
+        if (!inside) return new ImportResult(false, $"'{name}' is not in a dev folder, so it is not deleted.");
+
+        try
+        {
+            if (Directory.Exists(full)) Directory.Delete(full, recursive: true);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            return new ImportResult(false, $"Could not delete the build: {ex.Message}");
+        }
+
+        lock (_gate) _failed.RemoveAll(e => e.Name.Equals(name, StringComparison.OrdinalIgnoreCase));
+        UnloadDev(name);
+        Changed?.Invoke();
+        return new ImportResult(true, $"Removed the build of '{name}'.");
+    }
+
+    /// <summary>A dev build that could not be loaded is shown in Options like one that failed at startup, until a later build loads.</summary>
+    public void ReportDevFailure(string id, string folder, string message)
+    {
+        lock (_gate)
+        {
+            _failed.RemoveAll(e => e.Name.Equals(id, StringComparison.OrdinalIgnoreCase));
+            _failed.Add(new FailedExtension(id, folder, message, ExtensionSource.Dev));
+        }
+        Changed?.Invoke();
+    }
+
+    /// <summary>Hides a dev extension's tools and releases it (the project was deleted). Its services are disposed.</summary>
     public void UnloadDev(string id)
     {
         DllExtension? loaded;
@@ -288,10 +328,10 @@ public sealed partial class DllExtensions
             {
                 _loaded.Remove(loaded);
                 _active.Remove(id, out active);
-                if (loaded.HasServices) _pendingRestart.Add(id);
             }
         }
         if (loaded is not { Origin: ExtensionSource.Dev }) return;
+        _hub.Remove(id);
 
         _registry.Unregister(loaded.ToolIds);
         _assets.Remove(id);
@@ -311,9 +351,23 @@ public sealed partial class DllExtensions
         var version = loaded.Version.ToString(3);
         var infos = loaded.Tools.Select(t => new ExtensionInfo(t, loaded.Origin, loaded.Id, version)).ToList();
 
+        // The services go in before the tools are shown: a page that is drawn the moment the tools change must already find them. The
+        // version they replace keeps living until the tools are registered (a conflict with another extension undoes all of it)
+        var container = new ExtensionContainer(loaded.Id, loaded.Services, () => _hub.Host);
+        var previous = _hub.Swap(loaded.Id, container);
+
         // Conflicts surface as ExtensionException with a readable message
         try { _registry.Register(infos); }
-        catch (InvalidOperationException ex) { throw new ExtensionException(ex.Message); }
+        catch (InvalidOperationException ex)
+        {
+            _hub.Restore(loaded.Id, previous, container);
+            throw new ExtensionException(ex.Message);
+        }
+
+        // The services of the version it replaces are disposed here, which stops what they were doing
+        loaded.Container = container;
+        _hub.Release(previous);
+        StartHosted(container, loaded.Id);
 
         var entry = new DllExtension(loaded.Id, loaded.Name, loaded.Folder, version, loaded.Tools.Select(t => t.Id).ToArray(), loaded.Origin, loaded.HasServices);
         lock (_gate)
@@ -343,18 +397,29 @@ public sealed partial class DllExtensions
         {
             try
             {
-                lifecycle.Started(_services, loaded.Info);
+                lifecycle.Started(_hub.Host, loaded.Info);
             }
             catch (Exception ex)
             {
-                _services.GetService<ILoggerFactory>()?.CreateLogger("Extensions").LogError(ex, "Extension {Id} failed to start", loaded.Id);
+                _hub.Host.GetService<ILoggerFactory>()?.CreateLogger("Extensions").LogError(ex, "Extension {Id} failed to start", loaded.Id);
             }
         }
+    }
+
+    /// <summary>Starts the hosted services an extension registered. A failure is logged: the extension is loaded either way.</summary>
+    private void StartHosted(ExtensionContainer container, string id)
+    {
+        _ = Task.Run(async () =>
+        {
+            try { await container.StartHostedAsync(); }
+            catch (Exception ex) { _hub.Host.GetService<ILoggerFactory>()?.CreateLogger("Extensions").LogError(ex, "A hosted service of {Id} failed to start", id); }
+        });
     }
 
     /// <summary>Undoes <see cref="Activate"/> for an extension that was just imported.</summary>
     private void Deactivate(LoadedExtension loaded)
     {
+        _hub.Remove(loaded.Id);
         _registry.Unregister(loaded.Tools.Select(t => t.Id));
         _assets.Remove(loaded.Id);
         lock (_gate)

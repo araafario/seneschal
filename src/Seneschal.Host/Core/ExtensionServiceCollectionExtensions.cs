@@ -14,7 +14,12 @@ public static class ExtensionServiceCollectionExtensions
         services.AddSingleton<DevMode>();
         services.AddSingleton<Scaffolder>();
         services.AddSingleton<Workspace>();
+        services.AddSingleton<DotnetSdk>();
+        services.AddSingleton<Authoring>();
+        services.AddSingleton<DevProjects>();
         services.AddSingleton<Restarter>();
+        services.AddSingleton<DevWatcher>();
+        services.AddHostedService(sp => sp.GetRequiredService<DevWatcher>());
         return services;
     }
 

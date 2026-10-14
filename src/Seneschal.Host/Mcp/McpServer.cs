@@ -105,6 +105,7 @@ public sealed class McpServer(McpRegistry registry, McpApprovals approvals, Assi
             }
 
             var result = await entry.Tool.Run(new McpArguments(arguments), cancel);
+            if (result is McpContent content) return Reply(content);
             return Reply(Render(result), isError: false);
         }
         catch (McpException ex)
@@ -133,12 +134,27 @@ public sealed class McpServer(McpRegistry registry, McpApprovals approvals, Assi
         _ => JsonSerializer.Serialize(result, Output),
     };
 
+    /// <summary>The text, then each picture, as the protocol has them: a client that can see images shows them to the model.</summary>
+    private static JsonObject Reply(McpContent content)
+    {
+        var parts = new JsonArray(new JsonObject { ["type"] = "text", ["text"] = Render(content.Summary) });
+        foreach (var image in content.Images)
+            parts.Add(new JsonObject { ["type"] = "image", ["data"] = Convert.ToBase64String(image.Data), ["mimeType"] = image.MimeType });
+        return new JsonObject { ["content"] = parts, ["isError"] = false };
+    }
+
     private static JsonObject Reply(string text, bool isError) => new()
     {
         ["content"] = new JsonArray(new JsonObject { ["type"] = "text", ["text"] = text }),
         ["isError"] = isError,
     };
 }
+
+/// <summary>A picture in the answer of a tool.</summary>
+public sealed record McpImage(byte[] Data, string MimeType);
+
+/// <summary>An answer made of a summary (shown as JSON) and pictures. A tool of the app returns it when seeing something says more than text.</summary>
+public sealed record McpContent(object Summary, IReadOnlyList<McpImage> Images);
 
 /// <summary>Where Claude can reach the MCP endpoint: the first plain-http address the app listens on (Claude's own certificate store does not know the dev certificate).</summary>
 public sealed class McpAddress(IServiceProvider services)

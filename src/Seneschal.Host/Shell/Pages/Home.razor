@@ -1,41 +1,98 @@
 @page "/"
 @implements IDisposable
 @inject IToolRegistry Registry
+@inject Favorites Favs
 
 <PageTitle>Seneschal</PageTitle>
 
-<div class="home-banner">
-    <MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="pa-8">
-        <div class="home-hero">
-            <img src="@Assets["seneschal.png"]" alt="" class="home-logo" width="120" height="120" />
-            <div>
-                <MudText Typo="Typo.h3" Class="home-title">Welcome to Seneschal</MudText>
-                <MudText Typo="Typo.subtitle1" Class="home-tagline">A seneschal is a senior administrative official, steward, or major-domo in the household of a medieval or early modern king, prince, nobleman, or high-ranking church dignitary, and now you have one of your own.</MudText>
-            </div>
+<MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="page-shell">
+    <header class="home-head">
+        <img src="@Assets["seneschal.png"]" alt="" class="home-logo" width="48" height="48" />
+        <div>
+            <h1 class="home-title">Seneschal</h1>
+            <p class="home-tagline">Your tools, one assistant that can use them, and an MCP server for your own AI</p>
         </div>
+    </header>
+    <div class="page-divider"></div>
 
-        <MudText Typo="Typo.h6" Class="section-title">All tools</MudText>
+    @if (FavoriteTools.Count > 0)
+    {
+        <h2 class="opt-group" id="home-favorites">Favorites</h2>
         <MudGrid Spacing="2">
-            @foreach (var tool in Registry.All)
+            @foreach (var tool in FavoriteTools)
             {
                 <MudItem xs="12" md="6" lg="4">
                     <ToolCard Tool="tool" />
                 </MudItem>
             }
         </MudGrid>
-        @if (!Registry.All.Any())
-        {
-            <MudText Style="opacity:.7" id="no-tools">
-                No tools yet. Create one in <MudLink Href="/developer">Developer</MudLink> or import one in the <MudLink Href="/extensions">Extension Manager</MudLink>.
-            </MudText>
-        }
-    </MudContainer>
-</div>
+    }
+
+    @foreach (var group in Registry.All.GroupBy(t => t.Group).OrderBy(g => g.Key, StringComparer.OrdinalIgnoreCase))
+    {
+        <h2 class="opt-group">@group.Key</h2>
+        <MudGrid Spacing="2">
+            @foreach (var tool in group)
+            {
+                <MudItem xs="12" md="6" lg="4">
+                    <ToolCard Tool="tool" />
+                </MudItem>
+            }
+        </MudGrid>
+    }
+    @if (!Registry.All.Any())
+    {
+        <div class="opt-empty" id="no-tools">
+            Nothing here yet. Import an extension in <MudLink Href="/options/extensions">Options</MudLink>, or ask the assistant to help you create one
+        </div>
+    }
+
+    <div class="home-more">
+        <section aria-labelledby="home-start">
+            <h2 class="opt-group" id="home-start">Get Started</h2>
+            <ul class="home-list">
+                @foreach (var step in Steps)
+                {
+                    <li><MudLink Href="@step.Href" Underline="Underline.None" Class="home-row"><span class="home-row-title">@step.Title</span><span class="home-row-detail">@step.Detail</span></MudLink></li>
+                }
+            </ul>
+        </section>
+        <section aria-labelledby="home-new">
+            <h2 class="opt-group" id="home-new">What's New</h2>
+            <ul class="home-list">
+                @foreach (var item in Shell.WhatsNew.Items)
+                {
+                    <li><MudLink Href="@item.Href" Underline="Underline.None" Class="home-row"><span class="home-row-title">@item.Title</span><span class="home-row-detail">@item.Detail</span></MudLink></li>
+                }
+            </ul>
+        </section>
+    </div>
+</MudContainer>
 
 @code {
-    protected override void OnInitialized() => Registry.Changed += OnChanged;
+    private sealed record Step(string Title, string Detail, string Href);
 
-    public void Dispose() => Registry.Changed -= OnChanged;
+    private static readonly Step[] Steps =
+    [
+        new("Make a tool with the assistant", "Say what you need, it writes the page, builds it and tests it", "/options/extensions/tutorial"),
+        new("Connect your own AI", "Cursor, VS Code or Claude Desktop can use the same tools", "/options/mcp"),
+        new("Make it yours", "Pick the icons the sidebar and Home show", "/options/appearance"),
+        new("Teach the assistant", "Edit how it talks and what it remembers", "/options/instructions"),
+    ];
+
+    private List<ToolMetadata> FavoriteTools => [.. Favs.Ids.Select(id => Registry.All.FirstOrDefault(t => t.Id == id)).OfType<ToolMetadata>()];
+
+    protected override void OnInitialized()
+    {
+        Registry.Changed += OnChanged;
+        Favs.Changed += OnChanged;
+    }
+
+    public void Dispose()
+    {
+        Registry.Changed -= OnChanged;
+        Favs.Changed -= OnChanged;
+    }
 
     private void OnChanged() => _ = InvokeAsync(StateHasChanged);
 }

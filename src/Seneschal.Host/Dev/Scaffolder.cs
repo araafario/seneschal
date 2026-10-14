@@ -8,7 +8,7 @@ using MudBlazor;
 
 namespace Seneschal.Dev;
 
-/// <param name="Services">Include an example of an extension with its own service (which makes it activate by a restart).</param>
+/// <param name="Services">Include an example of an extension with its own service (kept in the extension's own container).</param>
 public sealed record NewExtension(string Name, string Title, string Group, string Description, string IconKey, bool Services = false);
 
 /// <summary><see cref="Notes"/> are warnings the user should see (something that could not be done); the message itself is just what happened.</summary>
@@ -102,7 +102,7 @@ public sealed partial class Scaffolder(DevMode dev, IToolRegistry registry, DllE
             /* Styles of this extension; the app links them into every page because extension.json lists this file.
                Use the app's theme variables (--fg, --fg-dim, --border, --hover, --accent, --card, --field) so the tool follows
                light and dark mode, and keep the class names specific so they cannot collide with other extensions. */
-            .{{id}}-note { opacity: .7; font-size: .85rem; }
+            .{{id}}-note { opacity: .7; font-size: var(--fs-small); }
             """);
 
         Write(folder, $"{name}Tool.cs", services ? ToolWithServices(name, id, title, description, group, icon) : PlainTool(name, id, title, description, group, icon));
@@ -114,7 +114,7 @@ public sealed partial class Scaffolder(DevMode dev, IToolRegistry registry, DllE
 
                 <MudTextField T="string" @bind-Value="_input" Label="Input" Immediate="true" Variant="Variant.Outlined" />
                 <MudText Class="mt-4">@{{name}}Engine.Run(_input)</MudText>
-                <MudText Class="{{id}}-note mt-6">Opened @State.Opened time@(State.Opened == 1 ? "" : "s") since the app started. That count lives in this extension's own service.</MudText>
+                <MudText Class="{{id}}-note mt-6">Opened @State.Opened time@(State.Opened == 1 ? "" : "s") since the app started, counted by this extension's own service</MudText>
 
                 @code {
                     private string _input = "";
@@ -132,7 +132,7 @@ public sealed partial class Scaffolder(DevMode dev, IToolRegistry registry, DllE
                 @* The page title, the favorites button and the page container come from the app: build only the tool's content here. *@
                 <MudTextField T="string" @bind-Value="_input" Label="Input" Immediate="true" Variant="Variant.Outlined" />
                 <MudText Class="mt-4">@{{name}}Engine.Run(_input)</MudText>
-                <MudText Class="{{id}}-note mt-6">This extension's styles are in wwwroot/{{id}}.css.</MudText>
+                <MudText Class="{{id}}-note mt-6">This extension's styles are in wwwroot/{{id}}.css</MudText>
 
                 @code {
                     private string _input = "";
@@ -193,7 +193,7 @@ public sealed partial class Scaffolder(DevMode dev, IToolRegistry registry, DllE
             <Project Sdk="Microsoft.NET.Sdk.Razor">
 
               <!-- A Seneschal extension, built from the SDK package alone. The package brings the types and the build rules that stage
-                   the extension and pack it as artifacts/packages/{{id}}.snx, the file to import in the Extension Manager. -->
+                   the extension and pack it as artifacts/packages/{{id}}.snx, the file to import in Options, Extensions. -->
               <PropertyGroup>
                 <TargetFramework>net10.0</TargetFramework>
                 <Nullable>enable</Nullable>
@@ -231,8 +231,8 @@ public sealed partial class Scaffolder(DevMode dev, IToolRegistry registry, DllE
             ## Try it
 
             - **Live:** set `SENESCHAL_DEV_EXTENSIONS` to the full path of `artifacts/extensions`, run `seneschal restart`, and rebuild after each change.
-              An extension that registers no services reloads on every build; one with services needs `seneschal restart`.
-            - **Installed:** open Seneschal, then Extension Manager, Import, and choose the `.snx`.
+              Every build is loaded by itself, with or without services, and an open page updates.
+            - **Installed:** open Seneschal, then Options, Extensions, Import, and choose the `.snx`.
 
             ## What is in it
 
@@ -243,6 +243,15 @@ public sealed partial class Scaffolder(DevMode dev, IToolRegistry registry, DllE
             - `wwwroot/{{id}}.css`: styles. Use the app's theme variables so the tool follows light and dark mode
 
             Everything a person can do on the page should also be a tool for the assistant. See the extension guide in the Seneschal repository, docs/extensions.md.
+
+            ## Before you share it
+
+            1. `dotnet build` with no errors and no warnings
+            2. It shows in Options, Extensions with no failure
+            3. Use each tool: a normal call and a bad one (empty or missing input), which must give a clear message
+            4. If it saves anything, change it, rebuild and read it back
+            5. Look at the page in dark and light mode, and go through the checklist at the end of docs/ui-guidelines.md
+            (The assistant does all of this by itself with `seneschal_extension_check` and `seneschal_extension_preview`.)
             """);
 
         return new ScaffoldResult(true, $"Created {folder}", folder);
@@ -292,8 +301,8 @@ public sealed partial class Scaffolder(DevMode dev, IToolRegistry registry, DllE
         namespace {{name}};
 
         // Metadata, plus the extension's own services (IToolLifecycle).
-        // Services belong to the app's container, which is built once at startup, so an extension that registers any is
-        // activated by a restart (the Developer page tells you when that is needed).
+        // The services live in a container of this extension's own, made when it is loaded and disposed when it is rebuilt or removed:
+        // a singleton that implements IDisposable should stop its timers and background work there.
         // It also lists what the AI assistant can do with the tool (IToolMcp).
         public sealed class {{name}}Tool : IToolModule, IToolLifecycle, IToolMcp
         {

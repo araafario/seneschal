@@ -6,15 +6,14 @@ For people who want to change Seneschal itself or its bundled extensions. To jus
 
 ```
 Seneschal.slnx
-dev.ps1                     run from source; restarts the app on exit code 42
+dev.ps1                     build and run from source through the launcher, like an installed copy
 install.ps1, install.cmd    the installer
 version.txt                 major.minor of the app version
 src/
   Seneschal.Sdk/            what an extension compiles against
-  Seneschal.Host/           the app: shell, sidebar, Extension Manager, Developer page, assistant, MCP endpoint, the seneschal command
+  Seneschal.Host/           the app: shell, sidebar, Options, assistant, MCP endpoint, the seneschal command
   Seneschal.Launcher/       SeneschalApp.exe, what the Start menu shortcut starts (no console window)
-extensions/
-  DevEnvironment/           Projects (Docker, .NET, microfrontends, Smart Startup) and Logs
+extensions/                 build files for an extension made in Options, Projects (Seneschal ships none)
 docs/                       these guides and ui-guidelines.md
 assets/branding/            the logo and the icon
 artifacts/                  build output only, never source
@@ -27,25 +26,26 @@ artifacts/                  build output only, never source
 .\dev.ps1
 ```
 
-The app project references the extensions of this repo, so building the app builds them. `dev.ps1` also loads their staged builds from `artifacts/extensions` (shown as **Dev** in the Extension Manager) and restarts the app when it exits with code 42, which is what the **Restart App** button does.
+The app project references the extensions of this repo, so building the app builds them. `dev.ps1` builds the app, which also builds the launcher (`SeneschalApp.exe`) into the same folder, then starts it through the launcher, hidden, exactly as an installed copy starts: control it with the `seneschal` command from that folder (`seneschal logs`, `stop`, `restart`), and **Restart App** works by itself. A copy started from a checkout runs as Development, so it has Options, Projects and loads the staged builds in `artifacts/extensions` (shown as **Dev** in Options, Extensions). `dev.ps1 -Attached` runs it in the window instead (`dotnet run`) and starts it again when it exits with code 42.
 
 ```powershell
 dotnet build Seneschal.slnx
 ```
 
-A copy of Seneschal that runs from the build folder (`seneschal start` on a `bin\Release` build) is stopped for you before the next build of the app, so it does not lock the files being replaced. A copy running from somewhere else, such as an installed one, is left alone, and so is a Seneschal started by `dev.ps1`: stop that one before a full build, or build one extension alone with `dotnet build extensions/DevEnvironment`.
+A copy of Seneschal that runs from the build folder (`seneschal start` on a `bin\Release` build) is stopped for you before the next build of the app, so it does not lock the files being replaced. A copy running from somewhere else, such as an installed one, is left alone, and so is a Seneschal started by `dev.ps1`: stop that one before a full build, or build one extension alone.
 
-## The Developer page
+## Options, Projects
 
-When the app runs from a checkout of this repo (Development environment), the **Developer** page manages `extensions/`:
+**Options, Projects** is for whoever makes extensions (it shows when the .NET SDK is installed or the app runs from source). Live Reload lives there: a project builds into its own `artifacts\extensions` folder, Seneschal watches that folder and loads each build the moment it finishes, with no import and no restart.
 
-- **New Extension** creates a complete project, adds it to `Seneschal.slnx` and can build and load it.
-- **Build** runs `dotnet build`, shows compiler errors and loads the result live.
-- **Delete** asks first, then moves the project to `.deleted/extensions/`, removes it from the solution and unloads it.
+- **New Project** creates a complete project (inside `extensions/` of this repo and in `Seneschal.slnx` when run from a checkout, anywhere else otherwise) and watches it.
+- **Add Project** watches a project you already have.
+- **Build** runs `dotnet build`, shows compiler errors and loads the result live. **Remove Build** unloads it.
+- **Delete Project** (repo projects only) asks first, then moves the project to `.deleted/extensions/`, removes it from the solution and unloads it.
 
 ## Working safely
 
-Test anything destructive or anything that changes the repo **on a copy**, never on the real one: the Developer page, moving folders, edits to `Seneschal.slnx` or `Seneschal.Host.csproj`. Run the copy on its own port with `SENESCHAL_DATA_DIR` pointing at a scratch folder. Use throwaway containers and projects for runner tests, and never start, stop or kill your own services or your own running Seneschal.
+Test anything destructive or anything that changes the repo **on a copy**, never on the real one: Options, Projects, moving folders, edits to `Seneschal.slnx` or `Seneschal.Host.csproj`. Run the copy on its own port with `SENESCHAL_DATA_DIR` pointing at a scratch folder. Use throwaway containers and projects for runner tests, and never start, stop or kill your own services or your own running Seneschal.
 
 ## The UI
 

@@ -1,0 +1,219 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Seneschal Quality Report</title>
+<style>
+  :root {
+    --bg: #f6f7fa; --card: #fff; --fg: #1b2233; --dim: #566074; --line: #dfe3ec; --accent: #1f4fa3;
+    --ok: #1d7a46; --bad: #b3261e; --warn: #8a5a00; --code: #eef1f7;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #17181b; --card: #202226; --fg: #eceef2; --dim: #a3aab8; --line: #33363d; --accent: #6cb6ff; --ok: #5fc98a; --bad: #ff8a80; --warn: #e5b45a; --code: #2a2d33; }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--fg); font: 15px/1.55 "Segoe UI Variable", "Segoe UI", system-ui, sans-serif; }
+  main { max-width: 980px; margin: 0 auto; padding: 32px 20px 64px; }
+  h1 { font-size: 28px; margin: 0 0 4px; }
+  h2 { font-size: 20px; margin: 48px 0 12px; padding-top: 16px; border-top: 1px solid var(--line); }
+  h3 { font-size: 16px; margin: 24px 0 8px; }
+  p { margin: 8px 0; }
+  .sub { color: var(--dim); margin: 0 0 24px; }
+  nav { display: flex; flex-wrap: wrap; gap: 4px 16px; margin: 16px 0 0; font-size: 14px; }
+  a { color: var(--accent); }
+  code { background: var(--code); padding: 1px 5px; border-radius: 4px; font: 13px Consolas, monospace; }
+  .key { background: var(--card); border: 1px solid var(--line); border-radius: 6px; padding: 8px 20px; margin: 16px 0; }
+  .key li { margin: 10px 0; }
+  .stats { display: flex; flex-wrap: wrap; gap: 12px; margin: 16px 0; }
+  .stat { flex: 1 1 140px; border: 1px solid var(--line); background: var(--card); border-radius: 6px; padding: 10px 14px; }
+  .stat b { display: block; font-size: 24px; font-variant-numeric: tabular-nums; }
+  .stat span { color: var(--dim); font-size: 13px; }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0; background: var(--card); border: 1px solid var(--line); border-radius: 6px; overflow: hidden; font-size: 14px; }
+  th, td { text-align: left; vertical-align: top; padding: 8px 12px; border-bottom: 1px solid var(--line); }
+  th { font-weight: 600; color: var(--dim); font-size: 13px; }
+  tr:last-child td { border-bottom: 0; }
+  .wrap { overflow-x: auto; }
+  .pass { color: var(--ok); font-weight: 600; }
+  .fail { color: var(--bad); font-weight: 600; }
+  .note { color: var(--warn); font-weight: 600; }
+  .shots { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px; margin: 16px 0; }
+  figure { margin: 0; }
+  figure img { width: 100%; border: 1px solid var(--line); border-radius: 6px; display: block; }
+  figcaption { color: var(--dim); font-size: 13px; margin-top: 4px; }
+  details { margin: 8px 0; }
+  summary { cursor: pointer; font-weight: 600; }
+  @media (max-width: 600px) { main { padding: 20px 14px 48px; } h1 { font-size: 24px; } }
+</style>
+</head>
+<body>
+<main>
+
+<h1>Seneschal Quality Report</h1>
+<p class="sub">14 October 2026. The settings redesign, a design audit of every screen, behavior tests, improvements, and the new README. Nothing is committed.</p>
+
+<nav aria-label="Sections">
+  <a href="#key">Key points</a>
+  <a href="#changes">Major changes</a>
+  <a href="#ui">1. UI audit</a>
+  <a href="#rules">Rules added</a>
+  <a href="#behavior">2. Behavior tests</a>
+  <a href="#improve">3. Improvements</a>
+  <a href="#docs">4. README and docs</a>
+  <a href="#open">Open items</a>
+  <a href="#rerun">How to repeat it</a>
+</nav>
+
+<h2 id="key">Key points</h2>
+<div class="key">
+<ul>
+  <li><b>Options is a real settings page now.</b> Sections are grouped (General, AI, Developer), every setting is a card with a title, one line and a control at the right, sub-options open in a one-level expander, and Live Reload lives in Options, Projects. The old Developer page is gone.</li>
+  <li><b>The design audit found real bugs, not just taste.</b> The app was unusable in a narrow window (the 300px sidebar pushed every page out of view), no dialog closed with <code>Esc</code>, a wrong MCP secret returned a 400 page instead of a 401, and the New Project dialog used checkboxes for on and off settings.</li>
+  <li><b>Home no longer looks like a landing page.</b> The gradient banner, the dictionary paragraph and the 72px icon tiles are replaced by a quiet header, tools grouped by name, favorites, a Get Started list and What's New.</li>
+  <li><b>The assistant can ask, learn and edit itself.</b> It asks with a clickable card when there are clear options, writes one-line lessons when corrected (you can edit them), and can change its own character after you allow it.</li>
+  <li><b>The rules now have 26 named checks.</b> Your list is in <code>docs/ui-guidelines.md</code> as <em>What to avoid</em> (A1 to A15, B1 to B11), adapted to a dense desktop tool, plus new rules from what the audit found twice.</li>
+  <li><b>Every behavior check passes after two fixes</b> (the MCP status code and <code>Esc</code> in dialogs), and one open question. Not tested here: a real Claude conversation, the installer, updates, and the Docker and log features of the LoopUp extension against real containers.</li>
+  <li><b>The README now says what it is for</b>, with specific situations instead of a feature list, and real screenshots from the running app.</li>
+</ul>
+</div>
+
+<div class="stats">
+  <div class="stat"><b>16</b><span>pages and states captured at 3 widths in dark and light (96 screenshots, no sideways scroll)</span></div>
+  <div class="stat"><b>14</b><span>UI problems fixed, over several rounds</span></div>
+  <div class="stat"><b>2</b><span>behavior bugs found and fixed, 1 open</span></div>
+  <div class="stat"><b>13</b><span>improvements done of 25 listed</span></div>
+  <div class="stat"><b>52</b><span>MCP tools checked for name, description and schema</span></div>
+</div>
+
+<h2 id="changes">Major changes</h2>
+
+<h3>Options and the pattern behind it</h3>
+<p>The pattern follows the Fluent app settings guidance: group related settings under headers, one card per setting (icon, title, one line, control at the right), an expander for sub-options that is never nested deeper than one level, a scrollable page about 1000px wide at most. Sources:
+<a href="https://learn.microsoft.com/windows/apps/design/app-settings/guidelines-for-app-settings">Guidelines for app settings</a> and the <a href="https://github.com/CommunityToolkit/Labs-Windows/discussions/129">SettingsExpander discussion</a>.</p>
+<div class="wrap"><table>
+<tr><th>Section</th><th>What it is now</th></tr>
+<tr><td>Extensions</td><td>One card per tool, a pill switch and a menu. A badge only says an exception (Dev, Built-in). The filter and chips appear once there are more than five. Version moved into the menu.</td></tr>
+<tr><td>Appearance</td><td>One expander per group with its tools inside, icon pickers, Default and Custom badges, reset.</td></tr>
+<tr><td>About (new)</td><td>Version, update check, address, data folder and log with Reveal. Also a tool: <code>seneschal_about</code>.</td></tr>
+<tr><td>Assistant</td><td>Claude path, model, and the test browser switch.</td></tr>
+<tr><td>Instructions</td><td>Character, Lessons, Extension Guide, UI Guidelines and SDK Reference as cards with Edit and Reset.</td></tr>
+<tr><td>MCP and MCP Tools</td><td>Split in two. Connection and client setups in one, every tool offered in the other (grouped, filterable).</td></tr>
+<tr><td>Projects (Developer)</td><td>Live Reload with clear wording, projects as expanders with Build, a menu, and what each one loaded. An empty page explains the three steps.</td></tr>
+</table></div>
+<p>Toggles are now always the rounded pill (40 by 24), with a gap before the label. This is a rule, and the one checkbox in the app that was really a setting became a switch, in two places.</p>
+
+<h3>Assistant</h3>
+<ul>
+  <li><code>seneschal_ask_user</code>: options as rows with a short line each, a box for your own answer, Skip. A single choice answers on the click.</li>
+  <li><code>seneschal_lesson_add</code>, <code>seneschal_instructions_list</code>, <code>seneschal_instruction_read</code> and <code>seneschal_instruction_update</code> (asks first). Lessons are sent with every message and are editable in Options, Instructions.</li>
+</ul>
+
+<div class="shots">
+  <figure><img src="../images/hero.png" alt="Home with the assistant asking a question"><figcaption>Home, with the assistant asking where a tool belongs.</figcaption></figure>
+  <figure><img src="../images/options-projects.png" alt="Options, Projects"><figcaption>Options, Projects.</figcaption></figure>
+  <figure><img src="../images/options-instructions.png" alt="Options, Instructions"><figcaption>Options, Instructions.</figcaption></figure>
+  <figure><img src="../images/home-light.png" alt="Home in light mode"><figcaption>Home in light mode.</figcaption></figure>
+</div>
+
+<h2 id="ui">1. UI audit</h2>
+<p>Method: every surface in <code>docs/qa/ui-audit-plan.md</code> opened at 1440, 760 and 375 pixels in dark and light, checked against the list of rules, fixed, and looked at again. A final sweep of 16 pages and states at the three widths and both themes (96 screenshots) found no sideways scroll and no blank page.</p>
+
+<div class="wrap"><table>
+<tr><th>#</th><th>Where</th><th>Rule</th><th>Found</th><th>Fix</th></tr>
+<tr><td>1</td><td>Home</td><td>A1, A6, A15</td><td>A blue to brown gradient behind the whole page, a hero with a dictionary definition, glass-blurred cards with 72px icon tiles.</td><td>Flat page, small header, tools grouped, 24px icons, no blur.</td></tr>
+<tr><td>2</td><td>Home</td><td>B4</td><td>Tool descriptions were dim text at 72% opacity on top.</td><td>One dim color, no opacity.</td></tr>
+<tr><td>3</td><td>Every page at 375px</td><td>B10</td><td>The 300px sidebar stayed open, so every page scrolled sideways and its content was off screen.</td><td>Under 800px the sidebar is a rail that opens over the page and closes when you pick a page. Cards wrap their controls.</td></tr>
+<tr><td>4</td><td>Extensions</td><td>A9, A13, A14</td><td><em>Installed v1.0.0</em> on every row, a filter and four chips for three items, a tooltip on a switch with a label.</td><td>Badge only for exceptions, filter from six items, version in the menu, no tooltip.</td></tr>
+<tr><td>5</td><td>Create an Extension</td><td>A4, A15, B7</td><td>Numbered circles in cards, nine accordion cards, old button names, sentences run together without full stops.</td><td>Flat steps and hairline-separated reference, prose with full stops, quick way first.</td></tr>
+<tr><td>6</td><td>Options, Projects</td><td>A9</td><td>Two badges on every project (<em>Loaded</em>, <em>This repository</em>). A one-line empty state.</td><td>A badge only when not loaded. A three-step guide when empty.</td></tr>
+<tr><td>7</td><td>LoopUp, Projects</td><td>B3, A14, A5</td><td>Four filled primary buttons on one page, disabled Select all, Start and Stop on empty lists, centered empty boxes.</td><td>Outlined add buttons, the filter and bulk row hidden when empty, left-aligned empty states in the normal text color.</td></tr>
+<tr><td>8</td><td>New Project dialog</td><td>A13, my own switch rule</td><td>Title said <em>Create New Extension</em>, helper text under every field, checkboxes for on and off.</td><td>Title <em>New Project</em>, helper text kept where it adds something, pill switches.</td></tr>
+<tr><td>9</td><td>All dialogs</td><td>B9, B8</td><td><code>Esc</code> closed nothing and no field had focus.</td><td>Dialogs close with <code>Esc</code> and take the keyboard, the first field is focused.</td></tr>
+<tr><td>10</td><td>Assistant question card</td><td>A5</td><td>My own new card centered its options (a button centers its content).</td><td>Left-aligned. The rule now says so.</td></tr>
+<tr><td>11</td><td>Wording</td><td>Wording rule</td><td>Trailing full stops and <em>...</em> in the reconnect screen, <em>Tool not found</em>, Logs and two dialogs.</td><td>Rewritten short.</td></tr>
+<tr><td>12</td><td>Toasts</td><td>B1, B11</td><td>A failed build put eight lines of errors in a toast that covered the assistant button.</td><td>One line and a Details popup with Copy. Toasts sit above the assistant button.</td></tr>
+<tr><td>13</td><td>Token page</td><td>B2, A11</td><td>A button taller than the fields beside it, sizes and opacity written by hand.</td><td>Sizes from the scale, dim text from the theme.</td></tr>
+<tr><td>14</td><td>Delete dialog, MCP Tools</td><td>B7</td><td><em>Delete extension</em> in Sentence case. Extension ids (<code>env-switcher</code>) as headings.</td><td><em>Delete Project</em>. Ids read as names.</td></tr>
+</table></div>
+
+<details>
+<summary>Passed without change</summary>
+<p>Options pages in light and dark at 1440 and 760, the Appearance expanders, the MCP section, the approval cards (allow and deny), the delete confirmation, the import confirmation, the assistant empty state and history, the Not Found page, contrast on the pill switches in both themes.</p>
+</details>
+
+<h2 id="rules">Rules added</h2>
+<ul>
+  <li><b>What to avoid</b> in the guidelines: your list as A1 to A15 (looks machine-made) and B1 to B11 (bad in any style), adapted: body text 14px, dim text 13px and never under 12px, controls 30 or 36px for a mouse, checked at 1440, 760 and 375px.</li>
+  <li><b>Toggle:</b> always the pill switch, 40 by 24, with a gap of 8px before the label. Never a square track or a checkbox for on and off.</li>
+  <li><b>Settings pages:</b> layout, section head, group heading, setting card, one-level expander, status badges, actions, empty states, wording.</li>
+  <li><b>Found twice:</b> a button does not center its content for you (A5), a badge says an exception (A9), a page of several sections has no filled button and empty lists hide their bulk row (B3), a narrow window gets a rail that opens over the page (B10), dialogs close with <code>Esc</code> and take focus, prose in documentation pages keeps its full stops.</li>
+  <li><b>Process:</b> when you call a design bad, the rule is updated in the same change (saved as a standing note).</li>
+</ul>
+
+<h2 id="behavior">2. Behavior tests</h2>
+<p>Run on a copy of the repository, on its own port, with a scratch data folder. Plan: <code>docs/qa/behavior-test-plan.md</code>.</p>
+<div class="wrap"><table>
+<tr><th>Area</th><th>Check</th><th>Result</th></tr>
+<tr><td>MCP</td><td>initialize, tools/list (52 tools), unique lowercase names, every tool has a description and an object schema</td><td class="pass">Pass</td></tr>
+<tr><td>MCP</td><td>Wrong secret and no secret refused</td><td class="fail">Failed, fixed</td></tr>
+<tr><td>MCP</td><td>The 13 tools that take no arguments and change nothing, called for real</td><td class="pass">Pass</td></tr>
+<tr><td>MCP</td><td>Unknown tool, missing argument, unknown id, path outside a project: all come back as errors the AI can read</td><td class="pass">Pass</td></tr>
+<tr><td>Approvals</td><td>A destructive call waits, the launcher shows a badge, the card is red, Deny returns "did not allow", Allow saves</td><td class="pass">Pass</td></tr>
+<tr><td>Questions</td><td><code>seneschal_ask_user</code> round trip: card shown, one click answers, the tool returns the label</td><td class="pass">Pass</td></tr>
+<tr><td>Lessons</td><td>Added as a dated line, kept in the data folder, read back</td><td class="pass">Pass</td></tr>
+<tr><td>Extensions</td><td>Import asks first, loads live with no restart</td><td class="pass">Pass</td></tr>
+<tr><td>Extensions</td><td>Turning a tool off removes its MCP tools, on brings them back, kept after a restart</td><td class="pass">Pass</td></tr>
+<tr><td>Extensions</td><td>Remove Build</td><td class="pass">Pass</td></tr>
+<tr><td>Projects</td><td>New Project creates, builds and loads in about 25 seconds, tool in the sidebar</td><td class="pass">Pass</td></tr>
+<tr><td>Projects</td><td>A name that is already used is refused with a reason</td><td class="pass">Pass</td></tr>
+<tr><td>Projects</td><td>A compile error is reported, the old build stays loaded, fixing it and building again loads the new one</td><td class="pass">Pass</td></tr>
+<tr><td>Projects</td><td>Live Reload switch, Delete Project (asks, moves to <code>.deleted</code>, tool gone)</td><td class="pass">Pass</td></tr>
+<tr><td>Dialogs</td><td><code>Esc</code> closes a dialog</td><td class="fail">Failed, fixed</td></tr>
+<tr><td>Shell</td><td>Icons and tool state kept after a restart, theme override, Not Found page, <code>Ctrl+K</code> and <code>Ctrl+J</code></td><td class="pass">Pass</td></tr>
+<tr><td>CLI</td><td>status, start twice (does not start a second), version, logs, help, unknown command, doctor</td><td class="pass">Pass</td></tr>
+<tr><td>Projects</td><td>After Delete Project, a copy of the extension was still loaded from the app's own <code>extensions</code> folder once. Not reproduced with a second project.</td><td class="note">Open</td></tr>
+</table></div>
+<p><b>Not tested here:</b> a real conversation with Claude Code (the panel was only opened and its cards driven through MCP), the installer, the update flow, Docker containers, real log sources and the setups for Cursor, VS Code and Claude Desktop (they are generated, not tried in those apps), and anything on a machine without the .NET SDK.</p>
+
+<h2 id="improve">3. Improvements</h2>
+<p>Why Seneschal matters and the whole list with priorities is in <code>docs/qa/improvement-plan.md</code>. In short: it is local, a tool takes minutes, and everything is also an MCP tool. The rule used to decide what to do directly: it stays inside this repository, it matches how Seneschal already works, and the effect is big.</p>
+<div class="wrap"><table>
+<tr><th>Done</th><th>Why</th></tr>
+<tr><td>Home that teaches (Get Started, What's New, Favorites)</td><td>The first ten minutes decide whether it is kept.</td></tr>
+<tr><td>Projects empty state, build failure Details, toasts clear of the assistant</td><td>The place people get stuck and the moment they are least patient.</td></tr>
+<tr><td><code>Ctrl+K</code>, <code>Ctrl+J</code>, <code>Esc</code></td><td>Daily friction.</td></tr>
+<tr><td>Rail in narrow windows</td><td>Usable next to an editor.</td></tr>
+<tr><td>Ask with choices, lessons, editing its own character</td><td>Trust and fit.</td></tr>
+<tr><td>About, and <code>seneschal doctor</code></td><td>Answers "where is my data and why does it not start" without reading logs.</td></tr>
+<tr><td>Plain 401 for a wrong MCP secret</td><td>Clients show a useful error.</td></tr>
+</table></div>
+<p><b>Next, in order:</b> more templates for a new extension (command runner, form and table, dashboard), a gallery of sample extensions, signed packages with the author shown at import, and a backup of all settings. They are in the plan with the rest.</p>
+
+<h2 id="docs">4. README and docs</h2>
+<ul>
+  <li><b>README:</b> opens with the specific situations Seneschal helps with (scattered scripts, forgotten commands, no time to build a UI, more than one AI, wanting supervision, no accounts), then how it works, Claude and MCP, three ways to make a tool, install, honest answers to the likely questions. Nine screenshots, taken from the running app with a set of demo tools made through the New Project dialog.</li>
+  <li><b>Docs updated:</b> the assistant guide (questions, lessons, editing itself), the install guide (<code>seneschal doctor</code>), the extension guide and the app README (Options, Projects replaces the Developer page), the tutorial inside the app (rewritten), the UI guidelines (rules above).</li>
+  <li><b>New:</b> <code>docs/qa</code> holds the three plans, so the audit and the tests can be repeated.</li>
+</ul>
+
+<h2 id="open">Open items and things to know</h2>
+<ul>
+  <li>Nothing is committed. About 135 paths changed in this repository, and the LoopUp extension repository has changes too (the Projects page, wording, a switch).</li>
+  <li>The LoopUp extension has to be built again and imported again to get its fixes: <code>dotnet build</code> in its repository, then Options, Extensions, Import.</li>
+  <li><code>extensions/Calculator</code> in this repository is an untracked leftover project that was not made in this round. It is not part of any change here and was left alone.</li>
+  <li>Fields are 32px high and buttons 36px, so a field and a button on one row differ by a few pixels. A global change broke the sidebar search and the model select, so it was reverted. It needs a proper pass on the input styles.</li>
+  <li>The question card and the approval card were not tried with a screen reader.</li>
+  <li>The Home What's New list is a short static list in <code>Shell/WhatsNew.cs</code>. It has to be edited by hand for each release.</li>
+  <li>The "Change All tools to Home" request: the sidebar already said <em>Home</em> everywhere in this repository, so there was nothing to change.</li>
+</ul>
+
+<h2 id="rerun">How to repeat it</h2>
+<ul>
+  <li>Plans: <code>docs/qa/ui-audit-plan.md</code>, <code>docs/qa/behavior-test-plan.md</code>, <code>docs/qa/improvement-plan.md</code>.</li>
+  <li>Run a copy of the app on its own port with <code>SENESCHAL_DATA_DIR</code> set to a scratch folder, never the real one.</li>
+  <li>MCP checks need the secret from <code>mcp-secret.txt</code> in that folder. Every call is one JSON-RPC POST to <code>/mcp</code>.</li>
+</ul>
+
+</main>
+</body>
+</html>

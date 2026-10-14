@@ -33,13 +33,9 @@ public sealed class ChatItem(ChatKind kind, string text)
 /// the same session after the first), with the app's MCP endpoint as its only tools, so Claude can do what the user can do in the app
 /// and nothing else. The answer is read as a stream and shown as it arrives.
 /// </summary>
-public sealed class ClaudeChat(AssistantSettings settings, McpAddress address, ChatHistory history) : IDisposable
+public sealed class ClaudeChat(AssistantSettings settings, McpAddress address, ChatHistory history, AssistantPrompt instructions) : IDisposable
 {
     private const string ServerName = "seneschal";
-
-    private const string Instructions =
-        "You are the assistant inside Seneschal, the user's local developer toolbelt. Use the Seneschal tools to do what the user asks: they do what the user can do in the app's pages. " +
-        "You cannot read files or run commands, only use these tools. Look things up with a list tool before acting on a name. Answer in a few plain words, say what you changed, and never paste tokens or passwords unless asked.";
 
     private readonly object _gate = new();
     private readonly List<ChatItem> _items = [];
@@ -194,7 +190,7 @@ public sealed class ClaudeChat(AssistantSettings settings, McpAddress address, C
                 // other tools that have no place here. The sign in is not part of the settings, so it still works
                 "--setting-sources", "project",
                 "--allowedTools", $"mcp__{ServerName}",
-                "--append-system-prompt", Instructions,
+                "--append-system-prompt", instructions.Build(),
             })
                 start.ArgumentList.Add(argument);
             if (settings.Model is { } model) { start.ArgumentList.Add("--model"); start.ArgumentList.Add(model); }

@@ -27,12 +27,13 @@ public static class AssistantModels
 public sealed class AssistantSettings
 {
     private static readonly JsonSerializerOptions Json = new() { WriteIndented = true };
-    private sealed record Saved(string? ClaudePath, bool AskBeforeChanges, string? Model);
+    private sealed record Saved(string? ClaudePath, bool AskBeforeChanges, string? Model, bool? ShowTestBrowser = null);
 
     private readonly object _gate = new();
     private string? _claudePath;
     private string? _model;
     private bool _askBeforeChanges;
+    private bool _showTestBrowser;
 
     public AssistantSettings()
     {
@@ -43,6 +44,7 @@ public sealed class AssistantSettings
                 _claudePath = saved.ClaudePath;
                 _askBeforeChanges = saved.AskBeforeChanges;
                 _model = saved.Model;
+                _showTestBrowser = saved.ShowTestBrowser ?? false;
             }
         }
         catch (Exception ex) when (ex is IOException or JsonException or UnauthorizedAccessException)
@@ -50,17 +52,44 @@ public sealed class AssistantSettings
             // Start with the defaults
         }
 
-        Secret = LoadSecret();
+        _secret = LoadSecret();
     }
 
     /// <summary>What Claude has to send to use the MCP endpoint. Made once and kept, so a Claude set up by hand keeps working after a restart.</summary>
-    public string Secret { get; }
+    private volatile string _secret;
+
+    public string Secret => _secret;
+
+    /// <summary>Makes a new secret. Whoever used the old one (a client set up by hand) is locked out until it is given the new one.</summary>
+    public void RegenerateSecret()
+    {
+        var secret = NewSecret();
+        try
+        {
+            Directory.CreateDirectory(AppPaths.DataDir);
+            File.WriteAllText(AppPaths.File("mcp-secret.txt"), secret);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            // The new secret still applies until the app restarts, when the old file is read again
+        }
+        _secret = secret;
+        Changed?.Invoke();
+    }
+
+    private static string NewSecret() => Convert.ToHexString(System.Security.Cryptography.RandomNumberGenerator.GetBytes(32)).ToLowerInvariant();
 
     public string? ClaudePath { get { lock (_gate) return _claudePath; } set { Set(() => _claudePath = string.IsNullOrWhiteSpace(value) ? null : value.Trim()); } }
 
     public string? Model { get { lock (_gate) return _model; } set { Set(() => _model = string.IsNullOrWhiteSpace(value) ? null : value.Trim()); } }
 
     public bool AskBeforeChanges { get { lock (_gate) return _askBeforeChanges; } set { Set(() => _askBeforeChanges = value); } }
+
+    /// <summary>
+    /// Whether the browser that looks at a page (the assistant's preview of an extension) shows its window. Off by default: it runs headless, with
+    /// no window, so it never gets in the way. Turn it on to watch what it does.
+    /// </summary>
+    public bool ShowTestBrowser { get { lock (_gate) return _showTestBrowser; } set { Set(() => _showTestBrowser = value); } }
 
     public event Action? Changed;
 
@@ -69,7 +98,7 @@ public sealed class AssistantSettings
         lock (_gate)
         {
             change();
-            try { File.WriteAllText(AppPaths.File("assistant.json"), JsonSerializer.Serialize(new Saved(_claudePath, _askBeforeChanges, _model), Json)); }
+            try { File.WriteAllText(AppPaths.File("assistant.json"), JsonSerializer.Serialize(new Saved(_claudePath, _askBeforeChanges, _model, _showTestBrowser), Json)); }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { }
         }
         Changed?.Invoke();
@@ -84,7 +113,7 @@ public sealed class AssistantSettings
         }
         catch (IOException) { }
 
-        var secret = Convert.ToHexString(System.Security.Cryptography.RandomNumberGenerator.GetBytes(32)).ToLowerInvariant();
+        var secret = NewSecret();
         try
         {
             Directory.CreateDirectory(AppPaths.DataDir);

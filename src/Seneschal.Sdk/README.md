@@ -56,9 +56,7 @@ public void ConfigureServices(IServiceCollection services, IExtensionContext con
 public void Started(IServiceProvider services, IExtensionContext context) { }
 ```
 
-Services live in the app's container, which is built once at startup.
-An extension that registers any is therefore activated, updated and removed by an app restart.
-An extension that registers none loads and unloads live.
+Services live in a container of the extension's own, made when the extension is loaded and disposed when it is rebuilt, replaced or removed, so no extension ever needs the app to be restarted. Singletons that implement `IDisposable` are disposed with it: stop timers and background work there. Constructor injection works, `IEnumerable<T>` gives every registration, and what the extension does not have (the logger, the snackbar) comes from the app. Keyed services are not supported.
 
 `context.DataDirectory` is a folder only this extension writes to. It survives restarts and updates and is not deleted when the extension is removed.
 
@@ -98,7 +96,7 @@ public sealed class RegexTesterTool : IToolModule, IToolMcp
 
 1. Checks that `extension.json` sits next to the project file.
 2. Stages the extension in `<ExtensionArtifacts>/extensions/<ExtensionId>/`: the manifest, the DLL and PDB, the libraries it needs and `wwwroot/`.
-3. Zips that folder to `<ExtensionArtifacts>/packages/<ExtensionId>.snx`, the file a user imports in the Extension Manager.
+3. Zips that folder to `<ExtensionArtifacts>/packages/<ExtensionId>.snx`, the file a user imports in Options, Extensions.
 
 | Property | Default | Meaning |
 | --- | --- | --- |

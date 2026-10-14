@@ -1,0 +1,48 @@
+@using Seneschal.Cli
+@using Seneschal.Core
+@using Seneschal.Updates
+@inject ShellLauncher Shell
+@inject Seneschal.Mcp.McpAddress Address
+
+<OptionHeader Title="About" Description="Which version this is and where Seneschal keeps its files" />
+
+<h3 class="opt-group">This Copy</h3>
+<div class="opt-stack">
+    <SettingCard Key="version" Icon="@Icons.Material.Outlined.Info" Title="Version" Description="@Version">
+        <Badge>@if (_result is not null) { <span class="sc-badge" id="about-result">@_result</span> }</Badge>
+        <Control>
+            <MudButton Variant="Variant.Outlined" Size="Size.Small" OnClick="CheckAsync" Disabled="_checking" id="about-check">Check for Updates</MudButton>
+        </Control>
+    </SettingCard>
+    <SettingCard Key="address" Icon="@Icons.Material.Outlined.Language" Title="Address" Description="@(Address.Url ?? "Not listening yet")" />
+</div>
+
+<h3 class="opt-group">Files</h3>
+<div class="opt-stack">
+    <SettingCard Key="data" Icon="@Icons.Material.Outlined.Folder" Title="Data folder" Description="@AppPaths.DataDir">
+        <Control><MudButton Variant="Variant.Outlined" Size="Size.Small" OnClick="() => Shell.Reveal(AppPaths.DataDir)" id="about-data">Reveal</MudButton></Control>
+    </SettingCard>
+    <SettingCard Key="log" Icon="@Icons.Material.Outlined.Article" Title="Log" Description="@LogFile">
+        <Control><MudButton Variant="Variant.Outlined" Size="Size.Small" OnClick="() => Shell.Reveal(LogFile)" id="about-log">Reveal</MudButton></Control>
+    </SettingCard>
+</div>
+
+@code {
+    private string? _result;
+    private bool _checking;
+
+    private static string Version => EngineMode.Version == "0.0.0-dev" ? "Run from source" : EngineMode.Version;
+
+    private static string LogFile => Path.Combine(AppPaths.DataDir, "logs", "seneschal.log");
+
+    private async Task CheckAsync()
+    {
+        _checking = true;
+        _result = null;
+        var latest = await UpdateChecker.LatestAsync();
+        _checking = false;
+        _result = latest is null
+            ? "Could not reach the release feed"
+            : UpdateInstaller.Current < latest.Version ? $"Version {latest.Text} is available" : "This is the newest version";
+    }
+}

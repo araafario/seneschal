@@ -1,0 +1,86 @@
+@implements IDisposable
+@inject IToolRegistry Registry
+@inject GroupIcons GroupIconService
+@inject IDialogService Dialogs
+
+<OptionHeader Title="Appearance" Description="The icons the sidebar, the home page and search show for your tools" />
+
+<h3 class="opt-group">Icons</h3>
+<p class="opt-note opt-lead">An extension gives each of its tools a default icon. Pick another to use it instead, and reset to go back to the default</p>
+
+<div class="opt-stack">
+    @foreach (var group in Registry.InstalledGroups)
+    {
+        var name = group.Key;
+        var custom = GroupIconService.IsCustom(name);
+        var count = group.Count();
+        <SettingExpander Key="@($"group:{name}")" Title="@name" Open="@(Registry.InstalledGroups.Count <= 3)"
+                         Description="@($"{count} {(count == 1 ? "tool" : "tools")}")" Icon="@GroupIconService.Get(name)">
+            <IconContent>
+                <button type="button" class="sc-iconbtn" aria-label="@($"Change icon for {name}")" title="Change icon" @onclick="() => ChangeGroup(name)">
+                    <MudIcon Icon="@GroupIconService.Get(name)" />
+                </button>
+            </IconContent>
+            <Badge>@if (custom) { <span class="sc-badge is-accent">Custom</span> }</Badge>
+            <Control>
+                @if (custom)
+                {
+                    <MudTooltip Text="Reset to default">
+                        <MudIconButton Icon="@Icons.Material.Outlined.RestartAlt" Size="Size.Small" Class="sq-btn" aria-label="@($"Reset icon for {name}")" OnClick="() => GroupIconService.Reset(name)" />
+                    </MudTooltip>
+                }
+            </Control>
+            <ChildContent>
+                @foreach (var tool in group)
+                {
+                    var id = tool.Id;
+                    var toolCustom = GroupIconService.IsToolCustom(id);
+                    <SettingCard Nested="true" Key="@($"tool:{id}")" Title="@tool.Title" Description="@tool.Description">
+                        <IconContent>
+                            <button type="button" class="sc-iconbtn" aria-label="@($"Change icon for {tool.Title}")" title="Change icon" @onclick="() => ChangeTool(id)">
+                                <MudIcon Icon="@GroupIconService.Tool(tool)" />
+                            </button>
+                        </IconContent>
+                        <Badge>@if (toolCustom) { <span class="sc-badge is-accent">Custom</span> }</Badge>
+                        <Control>
+                            @if (toolCustom)
+                            {
+                                <MudTooltip Text="Reset to default">
+                                    <MudIconButton Icon="@Icons.Material.Outlined.RestartAlt" Size="Size.Small" Class="sq-btn" aria-label="@($"Reset icon for {tool.Title}")" OnClick="() => GroupIconService.ResetTool(id)" />
+                                </MudTooltip>
+                            }
+                        </Control>
+                    </SettingCard>
+                }
+            </ChildContent>
+        </SettingExpander>
+    }
+</div>
+
+@if (!Registry.InstalledGroups.Any())
+{
+    <div class="opt-empty">No extensions yet</div>
+}
+
+@code {
+    protected override void OnInitialized()
+    {
+        GroupIconService.Changed += OnChanged;
+        Registry.Changed += OnChanged;
+    }
+
+    public void Dispose()
+    {
+        GroupIconService.Changed -= OnChanged;
+        Registry.Changed -= OnChanged;
+    }
+
+    private void OnChanged() => _ = InvokeAsync(StateHasChanged);
+
+    private Task ChangeGroup(string group) => Pick(new DialogParameters<GroupIconDialog> { { x => x.Group, group } });
+
+    private Task ChangeTool(string id) => Pick(new DialogParameters<GroupIconDialog> { { x => x.ToolId, id } });
+
+    private Task Pick(DialogParameters<GroupIconDialog> parameters) =>
+        Dialogs.ShowAsync<GroupIconDialog>("Change Icon", parameters, new DialogOptions { MaxWidth = MaxWidth.Small, FullWidth = true, CloseButton = true });
+}

@@ -1,0 +1,36 @@
+@page "/options"
+@page "/options/{Section}"
+@using Seneschal.Shell.Sections
+@inject Seneschal.Dev.DotnetSdk Sdk
+@inject Seneschal.Dev.DevMode Dev
+
+<PageShell Title="Options" Icon="@Icons.Material.Outlined.Tune">
+    <div class="opt-layout">
+        <nav class="opt-nav" aria-label="Options">
+            @foreach (var group in OptionSections.Visible(Developer).GroupBy(s => s.Group))
+            {
+                <div class="opt-nav-group">@group.Key</div>
+                @foreach (var section in group)
+                {
+                    <a href="@($"/options/{section.Id}")" class="@($"opt-nav-item {(section == Current ? "is-active" : "")}")" id="@($"opt-{section.Id}")"
+                       aria-current="@(section == Current ? "page" : null)">
+                        <MudIcon Icon="@section.Icon" />
+                        <span class="opt-nav-text">@section.Title</span>
+                    </a>
+                }
+            }
+        </nav>
+        <section class="opt-content" aria-label="@Current.Title" id="opt-content">
+            <DynamicComponent @key="Current.Id" Type="Current.Component" />
+        </section>
+    </div>
+</PageShell>
+
+@code {
+    [Parameter] public string? Section { get; set; }
+
+    /// <summary>Developer sections are there only where someone develops: the .NET SDK is installed, or the app runs from source.</summary>
+    private bool Developer => Sdk.Available || Dev.Enabled;
+
+    private OptionSection Current => OptionSections.Find(Section, Developer);
+}

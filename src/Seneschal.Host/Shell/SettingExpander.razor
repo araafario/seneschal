@@ -1,0 +1,66 @@
+@* A setting card whose sub-options open under it. One level only: a row inside an expander is a plain SettingCard with Nested, never another
+   expander. The header has the same parts as a card (icon, title, description, control) and a chevron at the end. *@
+<div class="@($"sc sx {(_open ? "is-open" : "")} {Class}".Trim())" id="@Id" data-setting="@Key">
+    <div class="sc-row">
+        @if (Icon is not null || IconContent is not null)
+        {
+            <span class="sc-icon">@if (IconContent is not null) { @IconContent } else { <MudIcon Icon="@Icon" /> }</span>
+        }
+        <button type="button" class="sx-toggle" aria-expanded="@(_open ? "true" : "false")" aria-label="@($"{(_open ? "Collapse" : "Expand")} {Title}")" @onclick="Toggle">
+            <span class="sc-text">
+                <span class="sc-title">@Title@Badge</span>
+                @if (!string.IsNullOrEmpty(Description))
+                {
+                    <span class="sc-desc">@Description</span>
+                }
+            </span>
+        </button>
+        @if (Control is not null)
+        {
+            <div class="sc-control">@Control</div>
+        }
+        <button type="button" class="sx-chevron" aria-hidden="true" tabindex="-1" @onclick="Toggle"><MudIcon Icon="@Icons.Material.Outlined.ExpandMore" /></button>
+    </div>
+    @if (_open)
+    {
+        <div class="sx-body">@ChildContent</div>
+    }
+</div>
+
+@code {
+    [Parameter] public string? Icon { get; set; }
+
+    /// <summary>When the icon is itself a control (a button that opens a picker), it is given here and drawn in the icon's place.</summary>
+    [Parameter] public RenderFragment? IconContent { get; set; }
+
+    [Parameter, EditorRequired] public string Title { get; set; } = "";
+
+    [Parameter] public string? Description { get; set; }
+
+    [Parameter] public RenderFragment? Badge { get; set; }
+
+    [Parameter] public RenderFragment? Control { get; set; }
+
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+
+    [Parameter] public bool Open { get; set; }
+
+    [Parameter] public string? Id { get; set; }
+
+    [Parameter] public string? Key { get; set; }
+
+    [Parameter] public string? Class { get; set; }
+
+    private bool _open;
+    private bool _seen;
+
+    protected override void OnParametersSet()
+    {
+        // The first value decides how it starts, and after that the person's own opening and closing is kept
+        if (_seen) return;
+        _seen = true;
+        _open = Open;
+    }
+
+    private void Toggle() => _open = !_open;
+}

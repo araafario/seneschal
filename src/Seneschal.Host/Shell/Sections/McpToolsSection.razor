@@ -1,0 +1,46 @@
+@inject Seneschal.Mcp.McpRegistry Registry
+
+<OptionHeader Title="MCP Tools" Description="What any connected AI can use right now, the built-in assistant included. A tool that is turned off is not offered" />
+
+<MudTextField T="string" @bind-Value="_query" Immediate="true" Placeholder="@FilterText" aria-label="Filter tools" Variant="Variant.Outlined" Margin="Margin.Dense"
+              Class="ext-search mcp-filter" Adornment="Adornment.End" AdornmentIcon="@Icons.Material.Outlined.Search" />
+
+<div class="opt-stack" id="mcp-tools">
+    @foreach (var group in Visible.GroupBy(e => e.Source))
+    {
+        var rows = group.ToList();
+        <SettingExpander Key="@($"source:{group.Key}")" Icon="@Icons.Material.Outlined.Extension" Title="@Nice(group.Key)"
+                         Description="@($"{rows.Count} {(rows.Count == 1 ? "tool" : "tools")}")" Open="@(!string.IsNullOrWhiteSpace(_query))">
+            <ChildContent>
+                @foreach (var entry in rows)
+                {
+                    <SettingCard Nested="true" Key="@($"mcp:{entry.Tool.Name}")" Title="@entry.Tool.Name" Description="@entry.Tool.Description" Class="sc-mono">
+                        <Control><span class="@($"as-effect as-effect-{entry.Tool.Effect.ToString().ToLowerInvariant()}")">@entry.Tool.Effect</span></Control>
+                    </SettingCard>
+                }
+            </ChildContent>
+        </SettingExpander>
+    }
+    @if (!Visible.Any())
+    {
+        <div class="opt-empty">@(_tools.Count == 0 ? "No tools yet" : "No match")</div>
+    }
+</div>
+
+@code {
+    private IReadOnlyList<Seneschal.Mcp.McpEntry> _tools = [];
+    private string _query = "";
+
+    /// <summary>An extension's id (env-switcher) read as a name (Env Switcher).</summary>
+    private static string Nice(string source) =>
+        source.Contains('-') ? System.Globalization.CultureInfo.InvariantCulture.TextInfo.ToTitleCase(source.Replace('-', ' ')) : source;
+
+    private string FilterText => $"Filter {_tools.Count} tools";
+
+    private IEnumerable<Seneschal.Mcp.McpEntry> Visible =>
+        string.IsNullOrWhiteSpace(_query)
+            ? _tools
+            : _tools.Where(e => e.Tool.Name.Contains(_query.Trim(), StringComparison.OrdinalIgnoreCase) || e.Tool.Description.Contains(_query.Trim(), StringComparison.OrdinalIgnoreCase));
+
+    protected override void OnInitialized() => _tools = Registry.All();
+}

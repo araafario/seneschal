@@ -1,0 +1,46 @@
+@inject AssistantSettings Settings
+
+<OptionHeader Title="Assistant" Description="How the assistant in the corner of every page runs, and how it tests what it makes" />
+
+<h3 class="opt-group">Claude</h3>
+<div class="opt-stack">
+    <SettingCard Key="claude-path" Icon="@Icons.Material.Outlined.Terminal" Title="Claude Code"
+                 Description="The assistant runs the Claude Code that is signed in on this machine. Leave the path empty to use the one that is found">
+        <div class="sc-form">
+            <MudTextField T="string" Value="@Settings.ClaudePath" ValueChanged="v => Settings.ClaudePath = v" Label="Claude path" Placeholder="@_detected"
+                          Variant="Variant.Outlined" Margin="Margin.Dense" id="as-path" />
+        </div>
+    </SettingCard>
+
+    <SettingCard Key="model" Icon="@Icons.Material.Outlined.Psychology" Title="Model" Description="Which model answers. Default uses what Claude Code is set to">
+        <Control>
+            <MudSelect T="string" Value="@(Settings.Model ?? "default")" ValueChanged="SetModel"
+                       Variant="Variant.Outlined" Margin="Margin.Dense" Class="sc-select" aria-label="Model" id="as-model">
+                @foreach (var model in AssistantModels.Choices(Settings.Model))
+                {
+                    <MudSelectItem T="string" Value="@(model.Value == "" ? "default" : model.Value)">@model.Label</MudSelectItem>
+                }
+            </MudSelect>
+        </Control>
+    </SettingCard>
+</div>
+
+<h3 class="opt-group">Testing</h3>
+<div class="opt-stack">
+    <SettingCard Key="test-browser" Icon="@Icons.Material.Outlined.Preview" Title="Show the test browser"
+                 Description="The assistant looks at a page it made in a browser that runs headless, with no window. Turn this on to watch it work">
+        <Control>
+            <MudSwitch T="bool" Value="@Settings.ShowTestBrowser" ValueChanged="v => Settings.ShowTestBrowser = v" Color="Color.Primary" aria-label="Show the test browser" id="as-show-browser" />
+        </Control>
+    </SettingCard>
+</div>
+
+@code {
+    // Looked up once: the search walks every folder on PATH
+    private string _detected = "";
+
+    protected override void OnInitialized() => _detected = ClaudeChat.Find(null) ?? "Not found";
+
+    /// <summary>The first choice is the default, which is no model written down: Claude Code uses what it is set to.</summary>
+    private void SetModel(string value) => Settings.Model = value == "default" ? null : value;
+}

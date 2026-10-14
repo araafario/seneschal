@@ -1,8 +1,9 @@
 @implements IDisposable
 @inject Favorites Favs
+@inject GroupIcons GroupIconService
 
 @* A tool inside the page frame: the app draws the title bar and the favorites button; the tool's own view is the body. *@
-<PageShell Title="@Tool.Title" Icon="@Tool.Icon" SetTitle="Active">
+<PageShell Title="@Tool.Title" Icon="@GroupIconService.Tool(Tool)" SetTitle="Active">
     <Actions>
         <MudButton Variant="Variant.Text" Color="Color.Inherit" Class="favorite-btn" id="@($"favorite-toggle-{Tool.Id}")"
                    StartIcon="@(Favs.IsFavorite(Tool.Id) ? Icons.Material.Filled.Star : Icons.Material.Outlined.StarBorder)"
@@ -35,7 +36,11 @@
 
     private bool _ready;
 
-    protected override void OnInitialized() => Favs.Changed += OnFavoritesChanged;
+    protected override void OnInitialized()
+    {
+        Favs.Changed += OnFavoritesChanged;
+        GroupIconService.Changed += OnFavoritesChanged;
+    }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
@@ -46,7 +51,11 @@
         StateHasChanged();
     }
 
-    public void Dispose() => Favs.Changed -= OnFavoritesChanged;
+    public void Dispose()
+    {
+        Favs.Changed -= OnFavoritesChanged;
+        GroupIconService.Changed -= OnFavoritesChanged;
+    }
 
     private void OnFavoritesChanged() => _ = InvokeAsync(StateHasChanged);
 }

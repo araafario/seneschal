@@ -1,4 +1,5 @@
 @inject IToolRegistry Registry
+@inject GroupIcons GroupIconService
 @inject NavigationManager Nav
 
 <div class="drawer-search">
@@ -13,7 +14,7 @@
                          ResetValueOnEmptyText="true" MaxItems="12" SelectOnActivation="false">
             <ItemTemplate Context="tool">
                 <div class="d-flex align-center" style="gap: 12px;">
-                    <MudIcon Icon="@tool.Icon" Size="Size.Small" />
+                    <MudIcon Icon="@GroupIconService.Tool(tool)" Size="Size.Small" />
                     <MudText Typo="Typo.body2">@tool.Title</MudText>
                 </div>
             </ItemTemplate>

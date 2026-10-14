@@ -1,0 +1,58 @@
+@* The whole text of a failure, for when the toast only has room for the first line. *@
+<MudDialog>
+    <TitleContent>
+        <MudText Typo="Typo.h6">@Title</MudText>
+    </TitleContent>
+    <DialogContent>
+        <pre class="tutorial-code err-details" id="err-details">@Text</pre>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="CopyAsync" id="err-copy">Copy</MudButton>
+        <MudButton Color="Color.Primary" Variant="Variant.Filled" OnClick="() => MudDialog.Close()" id="err-close">Close</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = default!;
+    [Inject] private IJSRuntime JS { get; set; } = default!;
+
+    [Parameter] public string Title { get; set; } = "Details";
+
+    [Parameter, EditorRequired] public string Text { get; set; } = "";
+
+    private async Task CopyAsync()
+    {
+        try
+        {
+            await JS.InvokeVoidAsync("navigator.clipboard.writeText", Text);
+        }
+        catch (JSException)
+        {
+            // The browser refused the clipboard; the text is selectable in the box
+        }
+    }
+
+    /// <summary>A failure toast: the first line, and Details for the rest when there is more than that.</summary>
+    public static void Show(ISnackbar toast, IDialogService dialogs, string message, string title = "Details")
+    {
+        var lines = message.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        if (lines.Length <= 2)
+        {
+            toast.Add(string.Join(" ", lines), Severity.Error, o => o.RequireInteraction = true);
+            return;
+        }
+
+        var head = lines[0].TrimEnd(':') + ", " + lines[1];
+        toast.Add(head, Severity.Error, o =>
+        {
+            o.RequireInteraction = true;
+            o.Action = "Details";
+            o.OnClick = snack =>
+            {
+                _ = dialogs.ShowAsync<ErrorDetailsDialog>(title, new DialogParameters<ErrorDetailsDialog> { { x => x.Text, message }, { x => x.Title, title } },
+                    new DialogOptions { MaxWidth = MaxWidth.Medium, FullWidth = true, CloseButton = true });
+                return Task.CompletedTask;
+            };
+        });
+    }
+}

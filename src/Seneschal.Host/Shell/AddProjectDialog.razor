@@ -1,0 +1,47 @@
+@using Seneschal.Dev
+@inject DevWatcher Watcher
+
+@* Point Seneschal at a project you are building: its folder, the one with the .csproj. It watches the artifacts\extensions folder inside it, which is where the project builds to *@
+<MudDialog>
+    <TitleContent>
+        <MudText Typo="Typo.h6">Add Project</MudText>
+        <MudText Typo="Typo.body2" Style="opacity:.7">Choose the folder of an extension you are building</MudText>
+    </TitleContent>
+    <DialogContent>
+        <MudTextField T="string" @bind-Value="_path" Immediate="true" Label="Project folder" Placeholder="C:\code\JsonDiff" Variant="Variant.Outlined" Margin="Margin.Dense"
+                      HelperText="The folder with the .csproj. Seneschal watches its artifacts\extensions folder and loads every build"
+                      Error="@(_error is not null)" ErrorText="@_error" OnKeyDown="OnKey" id="add-project-path" />
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Cancel">Cancel</MudButton>
+        <MudButton Color="Color.Primary" Variant="Variant.Filled" OnClick="Add" Disabled="@string.IsNullOrWhiteSpace(_path)" id="add-project-add">Add</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = default!;
+
+    private string _path = "";
+    private string? _error;
+
+    private void OnKey(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter") Add();
+    }
+
+    private void Add()
+    {
+        if (string.IsNullOrWhiteSpace(_path)) return;
+        try
+        {
+            Watcher.AddFolder(_path);
+            MudDialog.Close(DialogResult.Ok(true));
+        }
+        catch (Exception ex) when (ex is InvalidOperationException or ArgumentException or NotSupportedException or IOException)
+        {
+            _error = ex.Message;
+        }
+    }
+
+    private void Cancel() => MudDialog.Cancel();
+}

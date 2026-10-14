@@ -34,12 +34,35 @@
     <ProjectReference Include="..\Seneschal.Sdk\Seneschal.Sdk.csproj" />
   </ItemGroup>
 
-  <!-- Extensions that ship with the app. They are built from their own projects and copied next to the app (and into a
-       publish) as extensions/<id>/, where the app loads them like any other extension. -->
-  <ItemGroup>
-    <BundledExtension Include="dev-environment" SourceProject="..\..\extensions\DevEnvironment\DevEnvironment.csproj" />
-    <ProjectReference Include="@(BundledExtension->'%(SourceProject)')" ReferenceOutputAssembly="false" />
+  <!-- A build from a checkout also builds the launcher into the app's folder, so a checkout is run the way an installed copy is: through
+       SeneschalApp.exe, hidden, controlled by the seneschal command (dev.ps1 does it). A release publishes the launcher itself
+       (release.yml) with a runtime identifier, which is why none of this applies then. -->
+  <ItemGroup Condition="'$(RuntimeIdentifier)' == ''">
+    <ProjectReference Include="..\Seneschal.Launcher\Seneschal.Launcher.csproj" ReferenceOutputAssembly="false" />
   </ItemGroup>
+
+  <Target Name="CopyLauncher" AfterTargets="Build" Condition="'$(RuntimeIdentifier)' == '' and '$(DesignTimeBuild)' != 'true'">
+    <ItemGroup>
+      <_LauncherFiles Include="$(MSBuildThisFileDirectory)..\Seneschal.Launcher\bin\$(Configuration)\net10.0\SeneschalApp.*" />
+    </ItemGroup>
+    <Copy SourceFiles="@(_LauncherFiles)" DestinationFolder="$(OutDir)" SkipUnchangedFiles="true" />
+  </Target>
+
+  <!-- The documents the assistant reads to make an extension. They ship inside the app so an installed copy has them too. -->
+  <ItemGroup>
+    <EmbeddedResource Include="..\..\docs\ui-guidelines.md" LogicalName="ui-guidelines.md" />
+    <EmbeddedResource Include="..\Seneschal.Sdk\README.md" LogicalName="sdk-reference.md" />
+    <EmbeddedResource Include="Assistant\Instructions\character.md" LogicalName="instruction-character.md" />
+    <EmbeddedResource Include="Assistant\Instructions\guide.md" LogicalName="instruction-guide.md" />
+    <EmbeddedResource Include="Assistant\Instructions\lessons.md" LogicalName="instruction-lessons.md" />
+  </ItemGroup>
+
+  <!-- Extensions that ship with the app. Seneschal ships none: extensions are separate packages that people import. An extension
+       built from a project in this repository (extensions/<Name>) is listed here to be built with the app and copied next to it (and
+       into a publish) as extensions/<id>/, where the app loads it like any other extension:
+         <BundledExtension Include="my-tool" SourceProject="..\..\extensions\MyTool\MyTool.csproj" />
+         <ProjectReference Include="@(BundledExtension->'%(SourceProject)')" ReferenceOutputAssembly="false" />
+       Deleting a project in Options, Projects removes its line. -->
 
   <Target Name="CopyBundledExtensions" AfterTargets="Build">
     <ItemGroup>

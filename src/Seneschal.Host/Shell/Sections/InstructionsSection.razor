@@ -1,0 +1,46 @@
+@implements IDisposable
+@inject InstructionStore Instructions
+@inject IDialogService Dialogs
+
+<OptionHeader Title="Instructions" Description="The texts the assistant follows. Change any of them and it uses the new text from the next message" />
+
+<div class="opt-stack">
+    @foreach (var info in InstructionStore.All)
+    {
+        var id = info.Id;
+        var custom = Instructions.IsCustom(id);
+        <SettingCard Key="@($"instruction:{id}")" Icon="@IconFor(id)" Title="@info.Title" Description="@info.Description">
+            <Badge><span class="@($"sc-badge {(custom ? "is-accent" : "")}")">@(custom ? "Custom" : "Default")</span></Badge>
+            <Control>
+                @if (custom)
+                {
+                    <MudTooltip Text="Reset to default">
+                        <MudIconButton Icon="@Icons.Material.Outlined.RestartAlt" Size="Size.Small" Class="sq-btn" aria-label="@($"Reset {info.Title}")" OnClick="() => Instructions.Reset(id)" />
+                    </MudTooltip>
+                }
+                <MudButton Size="Size.Small" Variant="Variant.Outlined" OnClick="() => EditAsync(id)" id="@($"instr-edit-{id}")">Edit</MudButton>
+            </Control>
+        </SettingCard>
+    }
+</div>
+
+@code {
+    private static string IconFor(string id) => id switch
+    {
+        "character" => Icons.Material.Outlined.TheaterComedy,
+        "guide" => Icons.Material.Outlined.MenuBook,
+        "ui-guidelines" => Icons.Material.Outlined.Palette,
+        "sdk-reference" => Icons.Material.Outlined.Code,
+        _ => Icons.Material.Outlined.Description,
+    };
+
+    protected override void OnInitialized() => Instructions.Changed += OnChanged;
+
+    public void Dispose() => Instructions.Changed -= OnChanged;
+
+    private void OnChanged() => _ = InvokeAsync(StateHasChanged);
+
+    private Task EditAsync(string id) =>
+        Dialogs.ShowAsync<InstructionDialog>("Edit Instructions", new DialogParameters<InstructionDialog> { { x => x.Id, id } },
+            new DialogOptions { MaxWidth = MaxWidth.Large, FullWidth = true, CloseOnEscapeKey = true, CloseButton = true });
+}

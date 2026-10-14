@@ -1,0 +1,23 @@
+@* The head of a section of Options: its title, one line that says what it is for, and its main actions at the right end. Every section starts with it. *@
+<header class="opt-head">
+    <div class="opt-head-text">
+        <h2 class="opt-title">@Title</h2>
+        @if (!string.IsNullOrEmpty(Description))
+        {
+            <p class="opt-desc">@Description</p>
+        }
+    </div>
+    @if (ChildContent is not null)
+    {
+        <div class="opt-head-actions">@ChildContent</div>
+    }
+</header>
+
+@code {
+    [Parameter, EditorRequired] public string Title { get; set; } = "";
+
+    [Parameter] public string? Description { get; set; }
+
+    /// <summary>The section's main actions (Import, Add Project).</summary>
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+}

@@ -1,0 +1,9 @@
+{
+  "id": "calculator",
+  "name": "Calculator",
+  "version": "1.0.0",
+  "description": "Evaluate math expressions",
+  "entry": "Calculator.dll",
+  "sdk": "1.2",
+  "styles": [ "calculator.css" ]
+}

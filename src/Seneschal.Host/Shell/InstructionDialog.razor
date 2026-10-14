@@ -1,0 +1,49 @@
+@inject InstructionStore Store
+
+@* One text the assistant is told, in an editor. Saved texts apply from the next message; the default can always be put back *@
+<MudDialog>
+    <TitleContent>
+        <MudText Typo="Typo.h6">@Info.Title</MudText>
+    </TitleContent>
+    <DialogContent>
+        <div class="opt-note instr-note">@Info.Description</div>
+        <MudTextField T="string" @bind-Value="_text" Immediate="true" Lines="22" MaxLines="22" Variant="Variant.Outlined" Class="instr-editor" id="instr-text" spellcheck="false" />
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="ResetToDefault" Disabled="@(!Store.IsCustom(Id) && _text == _saved)" id="instr-reset">Reset to Default</MudButton>
+        <MudButton OnClick="Cancel" id="instr-cancel">Cancel</MudButton>
+        <MudButton Color="Color.Primary" Variant="Variant.Filled" OnClick="Save" Disabled="@(_text == _saved || string.IsNullOrWhiteSpace(_text))" id="instr-save">Save</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = default!;
+
+    [Parameter, EditorRequired] public string Id { get; set; } = "";
+
+    private string _text = "";
+    private string _saved = "";
+
+    private InstructionInfo Info => InstructionStore.Info(Id);
+
+    protected override void OnParametersSet()
+    {
+        _saved = Store.Get(Id);
+        _text = _saved;
+    }
+
+    private void Save()
+    {
+        Store.Set(Id, _text);
+        MudDialog.Close(DialogResult.Ok(true));
+    }
+
+    private void ResetToDefault()
+    {
+        Store.Reset(Id);
+        _saved = InstructionStore.Default(Id);
+        _text = _saved;
+    }
+
+    private void Cancel() => MudDialog.Cancel();
+}

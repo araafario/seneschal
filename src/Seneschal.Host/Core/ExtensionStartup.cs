@@ -24,6 +24,17 @@ public sealed class ExtensionStartup
     internal List<FailedExtension> Failed { get; } = [];
 
     private IReadOnlyList<string> _devFolders = [];
+    private IReadOnlyList<string> _fixedDevFolders = [];
+
+    /// <summary>
+    /// The folders that are set outside the app (the environment variable, the repository's own). The ones added in Options are kept in the
+    /// settings, which can change while the app runs, so DevWatcher reads those itself.
+    /// </summary>
+    internal IReadOnlyList<string> DevFolderPaths => _fixedDevFolders;
+
+    /// <summary>Every dev folder right now: the fixed ones and the ones added in Options.</summary>
+    internal IReadOnlyList<string> CurrentDevFolders() =>
+        [.. _fixedDevFolders.Concat(Seneschal.Shell.UiSettings.SavedDevFolders()).Distinct(StringComparer.OrdinalIgnoreCase)];
 
     /// <summary>The folders that hold dev builds: the ones in the environment variable, plus the repository's own when developing.</summary>
     internal static List<string> DevFolders(IHostEnvironment env)
@@ -37,7 +48,9 @@ public sealed class ExtensionStartup
 
     internal void LoadAll(IServiceCollection services, IReadOnlyList<string> devFolders)
     {
-        _devFolders = devFolders;
+        _fixedDevFolders = devFolders;
+        // What the folders added in Options hold is loaded at the start too, like the others
+        _devFolders = [.. devFolders.Concat(Seneschal.Shell.UiSettings.SavedDevFolders()).Distinct(StringComparer.OrdinalIgnoreCase)];
         var chosen = new List<Candidate>();
         foreach (var candidate in Discover())
         {
@@ -62,7 +75,8 @@ public sealed class ExtensionStartup
                     var collected = loaded.CollectServices();
                     RejectAppServices(collected);
                     loaded.HasServices = collected.Count > 0;
-                    foreach (var descriptor in collected) services.Add(descriptor);
+                    // Kept with the extension: its own container is made when it is activated, so it can be replaced later without a restart
+                    loaded.Services = collected;
                 }
                 catch
                 {

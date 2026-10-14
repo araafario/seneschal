@@ -28,8 +28,14 @@ internal sealed class LoadedExtension
 
     public required ExtensionContext Info { get; init; }
 
-    /// <summary>True when the extension registers its own services. Those live in the app's container, which only a restart can change.</summary>
+    /// <summary>True when the extension registers its own services.</summary>
     public bool HasServices { get; set; }
+
+    /// <summary>What the extension registered. Turned into its <see cref="Container"/> when it is activated.</summary>
+    public ServiceCollection Services { get; set; } = [];
+
+    /// <summary>The extension's own services, made when it is activated and disposed when it is replaced or removed.</summary>
+    internal ExtensionContainer? Container { get; set; }
 
     public IReadOnlyList<ToolMetadata> Tools => Modules.Select(m => m.Metadata).ToList();
 

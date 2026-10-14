@@ -2,12 +2,16 @@
 @inject ClaudeChat Chat
 @inject ChatHistory History
 @inject Seneschal.Mcp.McpApprovals Approvals
+@inject Seneschal.Mcp.McpQuestions Questions
 @inject Seneschal.Mcp.McpRegistry Registry
 @inject IToolRegistry Tools
+@inject GroupIcons GroupIconService
+@inject Seneschal.Mcp.McpAddress Address
 @inject AssistantSettings Settings
 @inject IDialogService Dialogs
 @inject ISnackbar Snackbar
 @inject IJSRuntime JS
+@inject NavigationManager Nav
 
 @* The assistant lives in the bottom right corner of every page: a round button that says what it is on hover, and a chat panel.
    The panel draws its frame first and its content a moment later, so a click is answered at once even when the app is busy. *@
@@ -17,7 +21,7 @@
         <span class="as-launcher-text">@(Chat.Running ? "Working" : "Ask your Seneschal anything")</span>
         <span class="as-launcher-icon">
             <MudIcon Icon="@Icons.Material.Outlined.AutoAwesome" />
-            @if (Approvals.Pending.Count > 0)
+            @if (Approvals.Pending.Count + Questions.Pending.Count > 0)
             {
                 <span class="as-launcher-badge" id="as-badge"></span>
             }
@@ -97,6 +101,20 @@ else
                         <MudButton Size="Size.Small" Variant="Variant.Outlined" Href="https://docs.claude.com/en/docs/claude-code/setup" Target="_blank">Install Guide</MudButton>
                         <MudButton Size="Size.Small" Variant="Variant.Filled" Color="Color.Primary" OnClick="OpenSettingsAsync">Set Path</MudButton>
                     </div>
+                    @ApprovalCards
+                    @if (Address.Url is { } mcpUrl)
+                    {
+                        <div class="as-missing-alt" id="as-missing-mcp">
+                            <div class="as-missing-alt-title">Or use your own MCP client</div>
+                            <div class="as-missing-sub">Every tool in Seneschal works in any client that speaks MCP, such as Claude Desktop, Cursor or VS Code. Copy the setup and paste it there</div>
+                            <code class="as-missing-url">@mcpUrl</code>
+                            <div class="as-missing-actions">
+                                <MudButton Size="Size.Small" Variant="Variant.Outlined" OnClick="() => CopyAsync(McpConfig(mcpUrl))" id="as-copy-config">Copy Config</MudButton>
+                                <MudButton Size="Size.Small" Variant="Variant.Outlined" OnClick="() => CopyAsync(McpCommand(mcpUrl))" id="as-copy-command">Copy Command</MudButton>
+                            </div>
+                            <div class="as-missing-sub">The config is JSON for most clients. The command is for Claude Code. Seneschal has to be running</div>
+                        </div>
+                    }
                 </div>
             }
             else
@@ -107,7 +125,7 @@ else
                         <div class="as-empty" id="as-empty">
                             <img class="as-empty-logo" src="seneschal.png" alt="" />
                             <div class="as-empty-title">How can I help</div>
-                            <div class="as-empty-sub">I run your projects, read your logs and use every tool in Seneschal</div>
+                            <div class="as-empty-sub">Your daily helper, ready to use any tool in Seneschal for you</div>
                             @if (_suggestions.Count > 0)
                             {
                                 <div class="as-suggest">
@@ -136,7 +154,6 @@ else
                                 {
                                     <div class="as-row as-row-claude">
                                         <div class="as-claude">@ChatMarkup.Render(item.Text)</div>
-                                        <MudTooltip Text="Copy"><MudIconButton Icon="@Icons.Material.Outlined.ContentCopy" Color="Color.Inherit" Size="Size.Small" Class="as-copy" OnClick="() => CopyAsync(item.Text)" aria-label="Copy" /></MudTooltip>
                                     </div>
                                 }
                                 break;
@@ -177,12 +194,69 @@ else
                     }
                 </div>
 
-                @foreach (var request in Approvals.Pending)
+                @ApprovalCards
+
+                <div class="as-composer">
+                    <textarea id="as-input" class="as-input" rows="1" placeholder="Ask Seneschal anything" @bind="_draft" @bind:event="oninput" disabled="@(!CanSend && !Chat.Running)"></textarea>
+                    @if (Chat.Running)
+                    {
+                        <MudTooltip Text="Stop" Placement="Placement.Top"><MudIconButton Icon="@Icons.Material.Filled.Stop" Color="Color.Inherit" Class="sq-btn" OnClick="Chat.Stop" id="as-stop" aria-label="Stop" /></MudTooltip>
+                    }
+                    else
+                    {
+                        <MudTooltip Text="Send" Placement="Placement.Top"><MudIconButton Icon="@Icons.Material.Filled.ArrowUpward" Color="Color.Primary" Variant="Variant.Filled" Class="sq-btn" OnClick="() => SendAsync(_draft)" Disabled="@(!CanSend)" id="as-send" aria-label="Send" /></MudTooltip>
+                    }
+                </div>
+            }
+        }
+    </section>
+}
+
+@code {
+    /// <summary>The questions the tools ask. Shown whatever the panel shows, so a tool called by another MCP client can be answered too.</summary>
+    private RenderFragment ApprovalCards => @<text>
+        @foreach (var question in Questions.Pending)
+        {
+            var id = question.Id;
+            <div class="as-approval as-question" data-question="@id">
+                <div class="as-approval-head">
+                    <MudIcon Icon="@Icons.Material.Outlined.HelpOutline" Size="Size.Small" />
+                    <span class="as-approval-title">@question.Text</span>
+                </div>
+                <div class="as-options" role="@(question.Multiple ? "group" : "radiogroup")">
+                    @foreach (var option in question.Options)
+                    {
+                        var label = option.Label;
+                        var on = Picked(id).Contains(label);
+                        <button type="button" class="@($"as-option {(on ? "is-on" : "")}")" role="@(question.Multiple ? "checkbox" : "radio")" aria-checked="@(on ? "true" : "false")" @onclick="() => Pick(question, label)">
+                            <span class="@($"as-option-mark {(question.Multiple ? "is-multi" : "")}")">@if (on) { <MudIcon Icon="@Icons.Material.Filled.Check" /> }</span>
+                            <span class="as-option-text">
+                                <span class="as-option-label">@label</span>
+                                @if (!string.IsNullOrEmpty(option.Description)) { <span class="as-option-desc">@option.Description</span> }
+                            </span>
+                        </button>
+                    }
+                </div>
+                @if (question.AllowOther)
+                {
+                    <input type="text" class="as-other" placeholder="Or write your own" aria-label="Your own answer" value="@Other(id)" @oninput="e => _other[id] = e.Value?.ToString() ?? string.Empty"
+                           @onkeydown="e => OnOtherKey(question, e)" />
+                }
+                <div class="as-approval-actions">
+                    <MudButton Size="Size.Small" Variant="Variant.Text" OnClick="() => Questions.Answer(id, null)" id="as-skip">Skip</MudButton>
+                    @if (question.Multiple || question.AllowOther)
+                    {
+                        <MudButton Size="Size.Small" Variant="Variant.Filled" Color="Color.Primary" OnClick="() => Submit(question)" Disabled="@(!HasAnswer(question))" id="as-answer">Send</MudButton>
+                    }
+                </div>
+            </div>
+        }
+        @foreach (var request in Approvals.Pending)
                 {
                     <div class="@($"as-approval {(request.Destructive ? "as-approval-bad" : "")}")" data-approval="@request.Tool">
                         <div class="as-approval-head">
-                            <MudIcon Icon="@(request.Destructive ? Icons.Material.Outlined.DeleteOutline : Icons.Material.Outlined.HelpOutline)" Size="Size.Small" />
-                            <span class="as-approval-title">@(request.Destructive ? "Allow this delete" : "Allow this change")</span>
+                            <MudIcon Icon="@(request.Destructive ? Icons.Material.Outlined.WarningAmber : Icons.Material.Outlined.HelpOutline)" Size="Size.Small" />
+                            <span class="as-approval-title">@(request.Destructive ? "Allow this action" : "Allow this change")</span>
                             <span class="as-approval-tool">@Pretty(request.Tool)</span>
                         </div>
                         <div class="as-approval-desc">@request.Description</div>
@@ -196,25 +270,51 @@ else
                         </div>
                     </div>
                 }
+</text>;
 
-                <div class="as-composer">
-                    <textarea id="as-input" class="as-input" rows="1" placeholder="Ask Seneschal anything" @bind="_draft" @bind:event="oninput" disabled="@(!CanSend && !Chat.Running)"></textarea>
-                    @if (Chat.Running)
-                    {
-                        <MudTooltip Text="Stop" Placement="Placement.Top"><MudIconButton Icon="@Icons.Material.Filled.Stop" Color="Color.Inherit" Class="sq-btn" OnClick="Chat.Stop" id="as-stop" aria-label="Stop" /></MudTooltip>
-                    }
-                    else
-                    {
-                        <MudTooltip Text="Send" Placement="Placement.Top"><MudIconButton Icon="@Icons.Material.Filled.ArrowUpward" Color="Color.Primary" Variant="Variant.Filled" Class="sq-btn" OnClick="() => SendAsync(_draft)" Disabled="@(!CanSend)" id="as-send" aria-label="Send" /></MudTooltip>
-                    }
-                </div>
-                <div class="as-hint">Enter to send, Shift+Enter for a new line</div>
-            }
+    private readonly Dictionary<string, HashSet<string>> _picked = [];
+    private readonly Dictionary<string, string> _other = [];
+
+    private HashSet<string> Picked(string id) => _picked.TryGetValue(id, out var set) ? set : [];
+
+    private string Other(string id) => _other.TryGetValue(id, out var text) ? text : "";
+
+    private bool HasAnswer(Seneschal.Mcp.Question q) => Picked(q.Id).Count > 0 || !string.IsNullOrWhiteSpace(Other(q.Id));
+
+    /// <summary>A single choice without a text box is answered by the click. Otherwise the click only marks the row and Send answers.</summary>
+    private void Pick(Seneschal.Mcp.Question question, string label)
+    {
+        if (!_picked.TryGetValue(question.Id, out var set)) _picked[question.Id] = set = [];
+        if (question.Multiple)
+        {
+            if (!set.Remove(label)) set.Add(label);
+            return;
         }
-    </section>
-}
 
-@code {
+        set.Clear();
+        set.Add(label);
+        _other.Remove(question.Id);
+        Submit(question);
+    }
+
+    private void OnOtherKey(Seneschal.Mcp.Question question, KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter" && HasAnswer(question)) Submit(question);
+    }
+
+    private void Submit(Seneschal.Mcp.Question question)
+    {
+        var answers = Picked(question.Id).ToList();
+        if (Other(question.Id).Trim() is { Length: > 0 } own)
+        {
+            if (!question.Multiple) answers.Clear();
+            answers.Add(own);
+        }
+        _picked.Remove(question.Id);
+        _other.Remove(question.Id);
+        Questions.Answer(question.Id, answers);
+    }
+
     private enum View
     {
         Chat,
@@ -242,6 +342,7 @@ else
     {
         Chat.Changed += OnChanged;
         Approvals.Changed += OnChanged;
+        Questions.Changed += OnChanged;
         Settings.Changed += OnChanged;
         History.Changed += OnChanged;
     }
@@ -250,6 +351,7 @@ else
     {
         Chat.Changed -= OnChanged;
         Approvals.Changed -= OnChanged;
+        Questions.Changed -= OnChanged;
         Settings.Changed -= OnChanged;
         History.Changed -= OnChanged;
     }
@@ -318,27 +420,25 @@ else
         }
     }
 
-    /// <summary>Three from the tools, one from each in turn so they are not all about the same thing, and the one about making a new tool.</summary>
+    /// <summary>
+    /// Making a new tool is always the first card, so there is something to do in a Seneschal that has no tools yet. Then three from
+    /// the tools, one from each in turn so they are not all about the same thing.
+    /// </summary>
     private List<Suggestion> BuildSuggestions()
     {
         var tools = Tools.All.Where(t => t.Prompts.Count > 0).ToList();
-        var list = new List<Suggestion>();
-        for (var round = 0; round < 3 && list.Count < 3; round++)
+        var list = new List<Suggestion> { new("Help me create a new extension", Icons.Material.Outlined.Extension, "Seneschal") };
+        for (var round = 0; round < 3 && list.Count < 4; round++)
             foreach (var tool in tools.Where(t => round < t.Prompts.Count))
-                if (list.Count < 3) list.Add(new Suggestion(tool.Prompts[round], tool.Icon, tool.Title));
-        list.Add(new Suggestion("Help me create a new extension", Icons.Material.Outlined.Extension, "Seneschal"));
+                if (list.Count < 4) list.Add(new Suggestion(tool.Prompts[round], GroupIconService.Tool(tool), tool.Title));
         return list;
     }
 
-    private async Task SendAsync(string text)
-    {
-        if (!CanSend || string.IsNullOrWhiteSpace(text)) return;
-        _draft = "";
-        try { await JS.InvokeVoidAsync("seneschalFitInput", "as-input"); } catch (JSDisconnectedException) { }
-        await Chat.SendAsync(text);
-    }
+    private string McpConfig(string url) =>
+        $$"""{ "mcpServers": { "seneschal": { "type": "http", "url": "{{url}}", "headers": { "Authorization": "Bearer {{Settings.Secret}}" } } } }""";
 
-    private void Reset() => Chat.Reset();
+    private string McpCommand(string url) =>
+        $"claude mcp add --transport http seneschal {url} --header \"Authorization: Bearer {Settings.Secret}\"";
 
     private async Task CopyAsync(string text)
     {
@@ -353,8 +453,21 @@ else
         }
     }
 
-    private Task OpenSettingsAsync() =>
-        Dialogs.ShowAsync<AssistantSettingsDialog>("Assistant Settings", new DialogOptions { MaxWidth = MaxWidth.Small, FullWidth = true, CloseOnEscapeKey = true });
+    private async Task SendAsync(string text)
+    {
+        if (!CanSend || string.IsNullOrWhiteSpace(text)) return;
+        _draft = "";
+        try { await JS.InvokeVoidAsync("seneschalFitInput", "as-input"); } catch (JSDisconnectedException) { }
+        await Chat.SendAsync(text);
+    }
+
+    private void Reset() => Chat.Reset();
+
+    private Task OpenSettingsAsync()
+    {
+        Nav.NavigateTo("/options/assistant");
+        return Task.CompletedTask;
+    }
 
     /// <summary>"projects_start" is shown as "Projects Start".</summary>
     private static string Pretty(string? name) =>

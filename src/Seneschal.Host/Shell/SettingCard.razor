@@ -1,0 +1,61 @@
+@* One setting, the way a settings page shows it: an icon, a title with a line that says what it does, and the control at the right end.
+   Anything that needs the full width (a form, a list) goes under the row as the child content. The pattern follows the Fluent settings card,
+   see docs/ui-guidelines.md, Settings pages. *@
+<div class="@Css" id="@Id" data-setting="@Key">
+    <div class="sc-row">
+        @if (Icon is not null || IconContent is not null)
+        {
+            <span class="sc-icon">@if (IconContent is not null) { @IconContent } else { <MudIcon Icon="@Icon" /> }</span>
+        }
+        <div class="sc-text">
+            <div class="sc-title">@Title@Badge</div>
+            @if (!string.IsNullOrEmpty(Description))
+            {
+                <div class="sc-desc">@Description</div>
+            }
+        </div>
+        @if (Control is not null)
+        {
+            <div class="sc-control">@Control</div>
+        }
+    </div>
+    @if (ChildContent is not null)
+    {
+        <div class="sc-body">@ChildContent</div>
+    }
+</div>
+
+@code {
+    [Parameter] public string? Icon { get; set; }
+
+    /// <summary>When the icon is itself a control (a button that opens a picker), it is given here and drawn in the icon's place.</summary>
+    [Parameter] public RenderFragment? IconContent { get; set; }
+
+    [Parameter, EditorRequired] public string Title { get; set; } = "";
+
+    [Parameter] public string? Description { get; set; }
+
+    /// <summary>A small tag after the title (Default, Custom, Watching).</summary>
+    [Parameter] public RenderFragment? Badge { get; set; }
+
+    /// <summary>The control at the right end of the row: a switch, a button, a menu.</summary>
+    [Parameter] public RenderFragment? Control { get; set; }
+
+    /// <summary>Full-width content under the row.</summary>
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+
+    [Parameter] public string? Id { get; set; }
+
+    /// <summary>A stable name for the setting, for tests and for the assistant to refer to.</summary>
+    [Parameter] public string? Key { get; set; }
+
+    /// <summary>The card dims when what it is about is off.</summary>
+    [Parameter] public bool Muted { get; set; }
+
+    /// <summary>A row inside an expander: no border of its own, a hairline above it.</summary>
+    [Parameter] public bool Nested { get; set; }
+
+    [Parameter] public string? Class { get; set; }
+
+    private string Css => $"sc {(Nested ? "sc-nested" : "")} {(Muted ? "is-muted" : "")} {Class}".Trim();
+}

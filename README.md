@@ -1,12 +1,12 @@
 <p align="center">
-  <img src="assets/branding/seneschal.png" width="150" alt="Seneschal">
+  <img src="assets/branding/seneschal.png" width="120" alt="Seneschal">
 </p>
 
 <h1 align="center">Seneschal</h1>
 
 <p align="center">
-  <b>The steward of your development machine.</b><br>
-  Start your stack, follow your logs, or just ask.
+  <b>The small tools of your day, in one place on your own machine.</b><br>
+  Ask Claude to build the ones you are missing. Every tool is also open to your own AI through MCP.
 </p>
 
 <p align="center">
@@ -14,37 +14,102 @@
   <a href="https://github.com/araafario/seneschal/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/araafario/seneschal/actions/workflows/ci.yml/badge.svg"></a>
   <img alt="Windows" src="https://img.shields.io/badge/platform-Windows-0078D4">
   <img alt=".NET 10" src="https://img.shields.io/badge/.NET-10-512BD4">
+  <img alt="MCP" src="https://img.shields.io/badge/MCP-server-444">
 </p>
 
 <p align="center">
   <a href="#install">Install</a> &nbsp;·&nbsp;
-  <a href="#what-you-can-do">What you can do</a> &nbsp;·&nbsp;
-  <a href="#ask-it">Ask it</a> &nbsp;·&nbsp;
-  <a href="#make-it-yours">Extensions</a> &nbsp;·&nbsp;
+  <a href="#does-this-sound-like-your-week">Why</a> &nbsp;·&nbsp;
+  <a href="#how-it-works">How it works</a> &nbsp;·&nbsp;
+  <a href="#claude-and-mcp">Claude and MCP</a> &nbsp;·&nbsp;
+  <a href="#make-your-own-tool">Make a tool</a> &nbsp;·&nbsp;
   <a href="#documentation">Docs</a>
 </p>
 
 <p align="center">
-  <img src="docs/images/hero.png" alt="Seneschal with its assistant open" width="860">
+  <img src="docs/images/hero.png" alt="Seneschal with the assistant asking which group a new tool belongs in" width="900">
 </p>
 
-## What is Seneschal
+## Does this sound like your week
 
-A seneschal is the steward of a great household: the one who knows where everything is and keeps it all running.
+- **Your tools are scattered.** A script in a gist, a note with the right `docker` flags, three terminals, a bookmark for the token page. Seneschal gives each one a page in one sidebar.
+- **You keep forgetting the command.** You know what you want to do and not how to spell it. A button with a label is easier to find than a line in your shell history.
+- **You want a tool and you cannot be bothered to build the UI.** Say what you need. The assistant writes the page, builds it, checks it against the design rules and loads it while you watch.
+- **You use more than one AI.** Claude Code in the terminal, Cursor in the editor, Claude Desktop for the rest. Every tool you add is an MCP tool, so all of them can use it, and none of them needs its own copy.
+- **You would like your AI to do the boring part, but not unsupervised.** Anything that deletes or overwrites asks you first, in a card you can see.
+- **You are tired of tools that want an account.** Seneschal runs on your machine. Your tokens, containers and source stay there.
 
-Seneschal does that for your computer. It is a small app that lives on your machine and looks after the things you start every morning: Docker containers, .NET projects and front ends. It brings them up in the right order, shows you what is running, and follows their logs. When you would rather not click, you ask the assistant, and it does it for you.
+## How it works
 
-Seneschal itself runs **locally**: your projects and settings stay on your machine. The assistant talks to Claude through your own Claude Code, so what you ask it is handled like any other Claude Code chat.
+Seneschal is a frame: a sidebar, a search, Options, an assistant and an MCP server. It ships with no tools on purpose. Every tool is an **extension** you import, build or ask for, and remove when you stop needing it.
 
-## What you can do
+<table>
+<tr>
+<td width="50%"><img src="docs/images/home.png" alt="Home, with tools grouped and a Get Started list"></td>
+<td width="50%"><img src="docs/images/options-extensions.png" alt="Options, Extensions"></td>
+</tr>
+<tr>
+<td><sub><b>Home.</b> Your tools by group, favorites on top, and a short list to get started.</sub></td>
+<td><sub><b>Extensions.</b> Turn a tool off to hide it. Import one you were given.</sub></td>
+</tr>
+</table>
 
-| | |
-| --- | --- |
-| **Run your stack** | Start and stop Docker containers, .NET projects (even several copies of one) and microfrontends from one list, and see what is up at a glance |
-| **Start it in order** | A Smart Startup is a plan: the database first, then the API once it is ready, then the UI. Seneschal waits for each step before the next |
-| **Follow the logs** | Watch several logs side by side, stacked or in a grid, and filter the lines |
-| **Ask for it** | A built-in assistant, powered by the Claude you already have on this machine, uses every feature above |
-| **Make it yours** | Add your own tools as extensions, in a few lines of C# |
+A few things you will notice:
+
+- **Nothing to restart.** An extension loads, updates and unloads live.
+- **Keyboard first.** `Ctrl+K` goes to the search, `Ctrl+J` to the assistant, `Esc` closes any dialog.
+- **Light and dark**, and a sidebar that becomes a rail in a narrow window.
+- **Small on purpose.** Short labels, no decoration, one accent color. The [UI guidelines](docs/ui-guidelines.md) say what it avoids and why.
+
+## Claude and MCP
+
+<table>
+<tr>
+<td width="50%"><img src="docs/images/options-mcp.png" alt="Options, MCP, with the address and a ready setup for each client"></td>
+<td width="50%"><img src="docs/images/options-instructions.png" alt="Options, Instructions, where the assistant's character and lessons can be edited"></td>
+</tr>
+<tr>
+<td><sub><b>MCP.</b> The address, the secret, and a setup to paste for Claude Code, Cursor, VS Code and Claude Desktop.</sub></td>
+<td><sub><b>Instructions.</b> Read and edit how the assistant talks and what it has learned.</sub></td>
+</tr>
+</table>
+
+- **An assistant on every page.** It runs the Claude Code you already have signed in, so there is no extra account or key.
+- **It asks with choices.** When there are a few clear options it shows them as a card you click, instead of a question you have to answer in words.
+- **It learns.** When you correct it, it writes one line to a list of lessons that you can read and edit. It can also edit its own character, and you are asked before it does.
+- **An MCP server.** Every tool is offered at `http://localhost:5380/mcp`, to the built-in assistant and to any client you connect. A tool that is turned off is not offered.
+- **Every feature is a tool.** What you can click, Claude can do. An extension adds its tools with one interface.
+- **It asks before it deletes.** Anything that removes or overwrites is marked, and Claude waits for your answer.
+
+You can say:
+
+- *Help me create a tool that compares two JSON files*
+- *Which tools do I have turned on, and which do I never open?*
+- *Show me the last errors in my logs*
+- *Start the stack I use on Mondays*
+
+See [the assistant guide](docs/assistant.md) for models, history, safety and using Seneschal from your own Claude Code.
+
+## Make your own tool
+
+Three ways, from least to most work:
+
+1. **Ask.** Open the assistant and choose *Help me create a new extension*. It asks what the tool should do, writes it, builds it, checks it and loads it.
+2. **Start from a template.** Options, Projects, *New Project*, or `seneschal extension new <Name>`. You get a complete project that already builds.
+3. **Write it.** An extension is a class, a Blazor page and a manifest, built against the [`Seneschal.Sdk`](src/Seneschal.Sdk/README.md) package.
+
+<table>
+<tr>
+<td width="50%"><img src="docs/images/new-project.png" alt="The New Project dialog"></td>
+<td width="50%"><img src="docs/images/options-projects.png" alt="Options, Projects, with several projects loaded"></td>
+</tr>
+<tr>
+<td><sub><b>New Project.</b> A name, a group, an icon.</sub></td>
+<td><sub><b>Projects.</b> Build, and the tool is in the sidebar. With Live Reload on, every build is loaded the moment it ends.</sub></td>
+</tr>
+</table>
+
+Share it as one `.snx` file. Someone else imports it in Options, and it is theirs.
 
 ## Install
 
@@ -54,40 +119,34 @@ On Windows, in PowerShell:
 irm https://raw.githubusercontent.com/araafario/seneschal/main/install.ps1 | iex
 ```
 
-That installs it for you alone, with no administrator rights. Then open **Seneschal** from the Start menu, or type `seneschal` in a terminal.
+That installs it for you alone, with no administrator rights, together with the .NET SDK so you can make your own tools without Visual Studio (add `-NoDev` for a lite install, see the [install guide](docs/install.md)). Then open **Seneschal** from the Start menu, or type `seneschal` in a terminal.
 
-Seneschal runs quietly in the background. There is no console window to keep open, and `seneschal stop` (or **Quit** in the sidebar) closes it. More about installing, updating and removing it is in the [install guide](docs/install.md).
+It runs quietly in the background. There is no console window to keep open, and `seneschal stop` (or **Quit** in the sidebar) closes it. `seneschal doctor` checks that everything it needs is in place and says what to fix.
 
-## Ask it
+## Questions
 
-The assistant sits in the corner of every page. Click it and say what you want:
+**Does anything leave my machine?** No. Seneschal listens on `localhost` and every MCP call needs a secret that only you have. The assistant uses the Claude Code you already run, so what you say to it goes where Claude Code sends it and nowhere else.
 
-- *Start my usual morning stack*
-- *What is running right now, and what is not?*
-- *Show me the last errors in the gateway log*
-- *Stop everything that is running*
+**Do I need Claude Code?** No. Without it the assistant panel cannot answer, but the tools, the MCP server and the setup for any other MCP client all work.
 
-It works through the same tools you click, so it can do anything you can, and it **asks before it deletes anything**. It uses the Claude Code already signed in on your machine, so there is no extra account or key to set up. See [the assistant guide](docs/assistant.md) for how it works, the choice of model, and using Seneschal from your own Claude Code.
+**Is an extension safe?** An extension runs with full access to your machine, like any program you install. Import only the ones you trust. Seneschal asks you to confirm every import.
 
-## Make it yours
-
-Every tool in Seneschal is an extension, including the ones that ship with it. Writing one is a class, a Blazor page and a manifest. The Developer page can create a complete project for you, build it, and load it live. Your tool is available to the assistant too, with one more method.
-
-Start with [the extension guide](docs/extensions.md), or open the tutorial inside the app.
+**Windows only?** For now. It is .NET and Blazor, so the core is portable, but the installer, the launcher and the shell integration are Windows.
 
 ## Documentation
 
 | | |
 | --- | --- |
 | [Install guide](docs/install.md) | Installing, updating, removing, the `seneschal` command, and when something does not start |
-| [The assistant](docs/assistant.md) | How it works, models, history, safety, and using Seneschal from your own Claude Code |
-| [Building extensions](docs/extensions.md) | What an extension is, where Seneschal finds them, and where to learn more |
+| [The assistant](docs/assistant.md) | How it works, models, history, lessons, safety, and using Seneschal from your own Claude Code |
+| [Building extensions](docs/extensions.md) | What an extension is, where Seneschal finds them, and how to make one |
 | [Developing Seneschal](docs/development.md) | Running from source, the project layout, testing safely, and making a release |
-| [UI guidelines](docs/ui-guidelines.md) | How everything looks, reads and behaves |
-| [Extension SDK](src/Seneschal.Sdk/README.md) &nbsp;·&nbsp; [The app](src/Seneschal.Host/README.md) &nbsp;·&nbsp; [Dev Environment](extensions/DevEnvironment/README.md) | Module references |
+| [UI guidelines](docs/ui-guidelines.md) | How everything looks, reads and behaves, and the list of things it avoids |
+| [Quality notes](docs/qa) | The plans used to audit the UI and test the behavior, and what lacks |
+| [Extension SDK](src/Seneschal.Sdk/README.md) &nbsp;·&nbsp; [The app](src/Seneschal.Host/README.md) | Module references |
 
 <br>
 
 <p align="center">
-  <sub>Made for people who start the same ten things every morning. Windows first, built with .NET 10 and Blazor.</sub>
+  <sub>Built for the person who does the same ten things every day. Windows first, built with .NET 10 and Blazor.</sub>
 </p>

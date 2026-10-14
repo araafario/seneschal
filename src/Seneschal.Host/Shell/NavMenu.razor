@@ -4,7 +4,7 @@
 @inject Favorites Favs
 
 <MudNavMenu Class="app-nav">
-    <MudNavLink Href="/" Match="NavLinkMatch.All" Icon="@Icons.Material.Outlined.Home" title="All tools">All tools</MudNavLink>
+    <MudNavLink Href="/" Match="NavLinkMatch.All" Icon="@Icons.Material.Outlined.Home" title="Home">Home</MudNavLink>
     <MudDivider Class="my-1" />
     @if (FavoriteTools.Count > 0)
     {
@@ -23,7 +23,7 @@
                     <div class="group-items">
                         @foreach (var tool in FavoriteTools)
                         {
-                            <MudNavLink Href="@($"/tools/{tool.Id}")" Icon="@tool.Icon" title="@tool.Title">@tool.Title</MudNavLink>
+                            <MudNavLink Href="@($"/tools/{tool.Id}")" Icon="@GroupIconService.Tool(tool)" title="@tool.Title">@tool.Title</MudNavLink>
                         }
                     </div>
                 }
@@ -55,7 +55,7 @@
                     <div class="group-items">
                         @foreach (var tool in group)
                         {
-                            <MudNavLink Href="@($"/tools/{tool.Id}")" Icon="@tool.Icon" title="@tool.Title">@tool.Title</MudNavLink>
+                            <MudNavLink Href="@($"/tools/{tool.Id}")" Icon="@GroupIconService.Tool(tool)" title="@tool.Title">@tool.Title</MudNavLink>
                         }
                     </div>
                 }

@@ -27,7 +27,7 @@ public interface IToolRegistry
     IReadOnlyList<ToolMetadata> All { get; }
     IReadOnlyList<IGrouping<string, ToolMetadata>> Groups { get; }
 
-    /// <summary>Every installed tool including the ones the user switched off (for the Extension Manager).</summary>
+    /// <summary>Every installed tool including the ones the user switched off (for Options, Extensions).</summary>
     IReadOnlyList<ToolMetadata> Installed { get; }
     IReadOnlyList<IGrouping<string, ToolMetadata>> InstalledGroups { get; }
 

@@ -11,6 +11,11 @@ Seneschal.Cli.EngineMode.Prepare();
 
 var builder = WebApplication.CreateBuilder(args);
 
+// The services of an extension are in a container of its own, so an extension can be loaded, replaced and removed while the app runs
+var extensionServices = new ExtensionServiceHub();
+builder.Host.UseServiceProviderFactory(new SeneschalServiceProviderFactory(extensionServices, builder.Environment.IsDevelopment()));
+builder.Services.AddSingleton(extensionServices);
+
 // The stylesheets and scripts of the app and of MudBlazor are found through a manifest that a build (not a publish) leaves next to the exe.
 // Only the Development environment reads it by itself: without this, an exe run from a build folder serves empty files and the page has no styles
 builder.WebHost.UseStaticWebAssets();
@@ -39,11 +44,14 @@ builder.Services.AddSingleton<AssistantSettings>();
 builder.Services.AddSingleton<HostMcpTools>();
 builder.Services.AddSingleton<McpRegistry>();
 builder.Services.AddSingleton<McpApprovals>();
+builder.Services.AddSingleton<McpQuestions>();
 builder.Services.AddSingleton<McpServer>();
 builder.Services.AddSingleton<McpAddress>();
 builder.Services.AddSingleton<ChatHistory>();
 builder.Services.AddSingleton<Seneschal.Updates.UpdateState>();
 builder.Services.AddHostedService<Seneschal.Updates.UpdateService>();
+builder.Services.AddSingleton<InstructionStore>();
+builder.Services.AddSingleton<AssistantPrompt>();
 builder.Services.AddSingleton<ClaudeChat>();
 
 var app = builder.Build();
@@ -78,7 +86,8 @@ app.MapGet("/_ext/{id}/{**path}", (string id, string path, ExtensionAssets asset
 // MCP over HTTP: one JSON-RPC message per POST, answered with JSON
 app.MapPost(McpServer.Path, async (HttpContext http, McpServer mcp) =>
 {
-    if (!mcp.IsAllowed(http)) return Results.Unauthorized();
+    // With a body, so the status page middleware leaves the answer alone and a client sees a plain 401
+    if (!mcp.IsAllowed(http)) return Results.Text("The MCP secret is missing or wrong", statusCode: StatusCodes.Status401Unauthorized);
     System.Text.Json.Nodes.JsonNode? message;
     try { message = await System.Text.Json.Nodes.JsonNode.ParseAsync(http.Request.Body, cancellationToken: http.RequestAborted); }
     catch (System.Text.Json.JsonException) { return Results.BadRequest(); }

@@ -7,7 +7,7 @@
 <MudLayout Class="@(_dark ? "app-dark" : "app-light")">
     @* The popups sit inside the themed layout so that dialogs and menus get the same colors (the --accent, --card, --border variables) *@
     <MudPopoverProvider />
-    <MudDialogProvider />
+    <MudDialogProvider CloseOnEscapeKey="true" />
     <MudSnackbarProvider />
     <MudDrawer Open="true" Variant="DrawerVariant.Persistent" Breakpoint="Breakpoint.None" Elevation="0" Class="@($"app-drawer {(_expanded ? "" : "is-mini")}")">
         <div class="drawer-header">
@@ -29,11 +29,7 @@
         </div>
         <MudNavMenu Class="app-nav drawer-footer">
             <MudDivider Class="my-1" />
-            <MudNavLink Href="/extensions" Icon="@Icons.Material.Outlined.Extension" title="Extension Manager">Extension Manager</MudNavLink>
-            @if (Dev.Enabled)
-            {
-                <MudNavLink Href="/developer" Icon="@Icons.Material.Outlined.Code" title="Developer">Developer</MudNavLink>
-            }
+            <MudNavLink Href="/options" Icon="@Icons.Material.Outlined.Tune" title="Options">Options</MudNavLink>
             @if (Seneschal.Cli.EngineMode.Active)
             {
                 @* Running hidden, there is no window to close: this is how the app is stopped from inside *@
@@ -71,6 +67,10 @@
     {
         _expanded = Settings.SidebarExpanded;
         _dark = Settings.DarkMode;
+        // A page opened with ?theme=light or ?theme=dark (by the headless browser that looks at a page) shows that theme and keeps the saved choice
+        var themed = System.Web.HttpUtility.ParseQueryString(new Uri(Nav.Uri).Query)["theme"];
+        if (string.Equals(themed, "light", StringComparison.OrdinalIgnoreCase)) _dark = false;
+        else if (string.Equals(themed, "dark", StringComparison.OrdinalIgnoreCase)) _dark = true;
         ExtensionFiles.Changed += OnAssetsChanged;
         Nav.LocationChanged += OnLocationChanged;
     }
@@ -87,7 +87,24 @@
     private void OnLocationChanged(object? sender, Microsoft.AspNetCore.Components.Routing.LocationChangedEventArgs e)
     {
         _pageChanged = true;
-        _ = InvokeAsync(StateHasChanged);
+        _ = InvokeAsync(async () =>
+        {
+            // On a narrow window the open sidebar covers the page, so choosing a page closes it (the saved choice for a wide window stays)
+            if (_expanded && await IsNarrowAsync()) _expanded = false;
+            StateHasChanged();
+        });
+    }
+
+    private async Task<bool> IsNarrowAsync()
+    {
+        try
+        {
+            return await JS.InvokeAsync<bool>("seneschalNarrow");
+        }
+        catch (JSDisconnectedException)
+        {
+            return false;
+        }
     }
 
     // An extension imported while the page is open brings stylesheets the page has not loaded yet
@@ -95,7 +112,15 @@
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        if (firstRender) await LinkStylesAsync();
+        if (firstRender)
+        {
+            await LinkStylesAsync();
+            if (_expanded && await IsNarrowAsync())
+            {
+                _expanded = false;
+                StateHasChanged();
+            }
+        }
         if (!firstRender && !_pageChanged) return;
         _pageChanged = false;
         try

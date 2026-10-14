@@ -1,0 +1,234 @@
+@using Seneschal.Dev
+@implements IDisposable
+@inject DevProjects Projects
+@inject Workspace Work
+@inject DevMode Dev
+@inject UiSettings Ui
+@inject DllExtensions Dlls
+@inject Restarter Restarter
+@inject IDialogService Dialogs
+@inject ISnackbar Snackbar
+
+<OptionHeader Title="Projects" Description="The extensions you are building. Each build is loaded into Seneschal the moment it finishes">
+    <MudButton Variant="Variant.Outlined" StartIcon="@Icons.Material.Outlined.FolderOpen" OnClick="AddAsync" id="add-project">Add Project</MudButton>
+    <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Outlined.Add" OnClick="NewAsync" id="new-project">New Project</MudButton>
+</OptionHeader>
+
+@if (_notes is { Count: > 0 })
+{
+    <Banner Tone="Banner.BannerTone.Warning" Title="@_notes[0]" Detail="@(_notes.Count > 1 ? string.Join("\n", _notes.Skip(1)) : null)" OnDismiss="() => _notes = null" id="dev-notes" />
+}
+@if (Dlls.RestartPending)
+{
+    <Banner Tone="Banner.BannerTone.Warning" Title="@($"Restart to use {string.Join(", ", Dlls.PendingRestart)}")"
+            Detail="@(Restarter.Available ? null : "Start Seneschal with the launcher or dev.ps1 to get a restart button")" id="dev-rebuild">
+        <Actions>
+            @if (Restarter.Available)
+            {
+                <MudButton Size="Size.Small" Variant="Variant.Outlined" OnClick="Restarter.Restart" id="restart-app">Restart App</MudButton>
+            }
+        </Actions>
+    </Banner>
+}
+
+<div class="opt-stack">
+    <SettingCard Key="live-reload" Icon="@Icons.Material.Outlined.Sync" Title="Live Reload"
+                 Description="Load a build the moment dotnet build ends, with no import and no restart. A project builds into its artifacts\extensions folder, and Seneschal watches that folder for each project below">
+        <Control>
+            <MudSwitch T="bool" Value="@Ui.DevLiveReload" ValueChanged="v => Ui.DevLiveReload = v" Color="Color.Primary" aria-label="Live reload" id="live-reload-switch" />
+        </Control>
+    </SettingCard>
+</div>
+
+@{
+    var projects = Projects.List();
+}
+@if (projects.Count == 0)
+{
+    <h3 class="opt-group">Make Your First Extension</h3>
+    <div class="opt-guide" id="no-projects">
+        <ol class="opt-steps">
+            <li>Start a project: New Project writes a complete one for you, Add Project takes a folder you already have</li>
+            <li>Build it: press Build here, or run <code>dotnet build</code> in the project, from a terminal or Visual Studio</li>
+            <li>Use it: the tool shows up in the sidebar the moment the build ends, and again on every build after</li>
+        </ol>
+        <p class="opt-note">Prefer to describe it? Ask the assistant to help you create a new extension: it asks what you need, writes it, builds it and tests it</p>
+    </div>
+}
+else
+{
+    <h3 class="opt-group">Your Projects</h3>
+}
+<div class="opt-stack">
+    @foreach (var project in projects)
+    {
+        var building = _building == project.Key;
+        var status = !project.BuildFolderExists ? "Not built yet" : project.Loaded.Count > 0 ? "Loaded" : "Built";
+        <SettingExpander Key="@($"project:{project.Key}")" Icon="@Icons.Material.Outlined.Code" Title="@project.Name" Description="@(project.ProjectFolder ?? project.BuildFolder)"
+                         Open="@(projects.Count <= 3)">
+            <Badge>@if (project.Loaded.Count == 0) { <span class="sc-badge">@status</span> }</Badge>
+            <Control>
+                @if (Projects.CanBuild(project))
+                {
+                    <MudButton Size="Size.Small" Variant="Variant.Outlined" StartIcon="@(building ? null : Icons.Material.Outlined.Build)" Disabled="@(_building is not null)"
+                               OnClick="() => BuildAsync(project)" Class="dev-build" id="@($"build-{project.Name}")">
+                        @if (building)
+                        {
+                            <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="build-spinner" />
+                        }
+                        @(building ? "Building" : "Build")
+                    </MudButton>
+                }
+                <MudMenu Icon="@Icons.Material.Outlined.MoreVert" Class="sq-btn" AriaLabel="More actions" Dense="true">
+                    <MudMenuItem OnClick="() => Safe(() => Projects.OpenFolder(project))">Open folder in VS Code</MudMenuItem>
+                    @if (Projects.CanBuild(project))
+                    {
+                        <MudMenuItem OnClick="() => Safe(() => Projects.OpenSolution(project))">Open solution in Visual Studio</MudMenuItem>
+                    }
+                    <MudMenuItem OnClick="() => Safe(() => Projects.Reveal(project))">Reveal in Explorer</MudMenuItem>
+                    @if (project.Removable)
+                    {
+                        <MudMenuItem OnClick="() => Safe(() => Projects.StopWatching(project))">Remove Project</MudMenuItem>
+                    }
+                    else if (project.Repo is not null)
+                    {
+                        <MudMenuItem OnClick="() => DeleteAsync(project.Repo)">Delete Project</MudMenuItem>
+                    }
+                </MudMenu>
+            </Control>
+            <ChildContent>
+                <SettingCard Nested="true" Key="@($"build-folder:{project.Key}")" Title="Builds to"
+                             Description="@(project.BuildFolderExists ? project.BuildFolder : $"{project.BuildFolder} (made by the first build)")" />
+                @foreach (var ext in project.Loaded)
+                {
+                    <SettingCard Nested="true" Key="@($"loaded:{ext.Name}")" Icon="@Icons.Material.Outlined.Extension" Title="@ext.Title"
+                                 Description="@($"v{ext.Version} · {ext.ToolIds.Length} {(ext.ToolIds.Length == 1 ? "tool" : "tools")} loaded")">
+                        <Control>
+                            @if (project.Repo is null)
+                            {
+                                <MudButton Size="Size.Small" Variant="Variant.Outlined" OnClick="() => RemoveBuildAsync(ext.Name)">Remove Build</MudButton>
+                            }
+                        </Control>
+                    </SettingCard>
+                }
+                @if (project.Loaded.Count == 0)
+                {
+                    <SettingCard Nested="true" Key="@($"empty:{project.Key}")" Title="Nothing loaded yet"
+                                 Description="@(Projects.CanBuild(project) ? "Press Build, or run dotnet build in the project" : "Build the project to load it")" />
+                }
+            </ChildContent>
+        </SettingExpander>
+    }
+</div>
+
+<MudLink Href="/options/extensions/tutorial" Underline="Underline.Hover" Color="Color.Inherit" Class="ext-footer">
+    Create an extension <MudIcon Icon="@Icons.Material.Outlined.ArrowForward" Size="Size.Small" />
+</MudLink>
+
+@code {
+    private string? _building;
+
+    /// <summary>Warnings the user should see after an action (something that could not be done). Success is never announced.</summary>
+    private List<string>? _notes;
+
+    protected override void OnInitialized()
+    {
+        Dlls.Changed += OnChanged;
+        Ui.Changed += OnChanged;
+    }
+
+    public void Dispose()
+    {
+        Dlls.Changed -= OnChanged;
+        Ui.Changed -= OnChanged;
+    }
+
+    private void OnChanged() => _ = InvokeAsync(StateHasChanged);
+
+    private async Task AddAsync() =>
+        await Dialogs.ShowAsync<AddProjectDialog>("Add Project", new DialogOptions { MaxWidth = MaxWidth.Small, FullWidth = true, CloseButton = true });
+
+    private async Task NewAsync()
+    {
+        var dialog = await Dialogs.ShowAsync<NewExtensionDialog>("Create New Extension", new DialogOptions { MaxWidth = MaxWidth.Small, FullWidth = true, CloseButton = true });
+        var result = await dialog.Result;
+        if (result is not { Canceled: false, Data: CreatedExtension created }) return;
+        if (!created.Result.Ok) { Fail(created.Result.Message); return; }
+
+        // The new row is the answer. Only a warning is worth a message
+        if (created.Result.Notes is { Count: > 0 } notes) _notes = [.. notes];
+        if (!created.BuildNow) return;
+
+        var folder = created.Result.Folder is null ? null : Path.GetFullPath(created.Result.Folder).TrimEnd(Path.DirectorySeparatorChar);
+        var project = Projects.List().FirstOrDefault(p => p.Repo?.Name == created.Name
+            || (folder is not null && p.ProjectFolder is not null && Path.GetFullPath(p.ProjectFolder).TrimEnd(Path.DirectorySeparatorChar).Equals(folder, StringComparison.OrdinalIgnoreCase)));
+        if (project is not null) await BuildAsync(project, created: true);
+    }
+
+    /// <summary>A spinner on the button while it builds, then a toast: short for success, kept until dismissed for a failure.</summary>
+    private async Task BuildAsync(DevProject project, bool created = false)
+    {
+        _building = project.Key;
+        StateHasChanged();
+        try
+        {
+            var result = await Projects.BuildAsync(project, CancellationToken.None);
+            if (!result.Ok)
+            {
+                Fail(result.Message);
+                return;
+            }
+
+            var built = result.Message.Split('\n')[0];
+            Snackbar.Add(created ? $"Created {project.Name} and {char.ToLowerInvariant(built[0])}{built[1..]}" : built, Severity.Success);
+        }
+        catch (Exception ex)
+        {
+            Fail(ex.Message);
+        }
+        finally
+        {
+            _building = null;
+        }
+    }
+
+    private async Task DeleteAsync(WorkspaceExtension ext)
+    {
+        var dialog = await Dialogs.ShowAsync<DeleteExtensionDialog>("Delete Extension",
+            new DialogParameters<DeleteExtensionDialog> { { x => x.Extension, ext } },
+            new DialogOptions { MaxWidth = MaxWidth.Small, FullWidth = true, CloseButton = true });
+        var result = await dialog.Result;
+        if (result is not { Canceled: false }) return;
+
+        try
+        {
+            var deleted = Work.Delete(ext.Name, includeBuiltIn: ext.Shipped);
+            if (!deleted.Ok) Fail(deleted.Message);
+            else if (deleted.Notes is { Count: > 0 } notes) _notes = [.. notes];
+        }
+        catch (Exception ex)
+        {
+            Fail(ex.Message);
+        }
+    }
+
+    private async Task RemoveBuildAsync(string package)
+    {
+        var confirmed = await Dialogs.ShowMessageBoxAsync("Remove Build", $"Delete the build of {package}? Build it again to get it back", yesText: "Remove", cancelText: "Cancel");
+        if (confirmed != true) return;
+        var result = Dlls.RemoveDevBuild(package);
+        if (!result.Ok) Fail(result.Message);
+    }
+
+    private void Safe(Action action)
+    {
+        try { action(); }
+        catch (Exception ex) when (ex is InvalidOperationException or IOException or System.ComponentModel.Win32Exception) { Fail(ex.Message); }
+    }
+
+    /// <summary>An error toast with the first line and a Details popup. It stays until it is dismissed.</summary>
+    private void Fail(string message)
+    {
+        ErrorDetailsDialog.Show(Snackbar, Dialogs, message);
+    }
+}

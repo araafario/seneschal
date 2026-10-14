@@ -14,6 +14,12 @@ From a Command Prompt, run `install.cmd` from the repository, or download it and
 
 It downloads the newest release, checks its SHA-256, and puts it in `%LOCALAPPDATA%\Programs\Seneschal`. It adds that folder to your PATH and a **Seneschal** shortcut to the Start menu. Running it again updates an existing install: it stops Seneschal, replaces the files and leaves your data alone.
 
+### The .NET SDK
+
+The installer also installs the **.NET 10 SDK** (about 300 MB), unless version 10 or newer is already on the machine. It is what lets you and the assistant make extensions without Visual Studio: ask *Help me create a new extension* and the assistant creates, writes, builds and loads the tool for you. The SDK goes in `%LOCALAPPDATA%\Seneschal\dotnet` for you alone, and `-Uninstall` removes it again. An SDK you installed yourself is never touched.
+
+Do not want it? Install **lite** with `-NoDev`. Seneschal works the same, and the assistant cannot make extensions until the SDK is there (the *Help me create a new extension* card tells you to run `seneschal dev install`). Seneschal checks for the SDK all the time, so adding it later needs no reinstall: run `seneschal dev install`, or install the SDK yourself.
+
 ### Options
 
 | Option | What it does |
@@ -23,11 +29,12 @@ It downloads the newest release, checks its SHA-256, and puts it in `%LOCALAPPDA
 | `-Zip <file>` | Install from a zip you already have, without downloading |
 | `-NoPath` | Do not add the folder to PATH |
 | `-NoShortcut` | Do not add the Start menu shortcut |
+| `-NoDev` | Lite install: do not install the .NET SDK |
 | `-Desktop` | Also add a shortcut on the desktop |
-| `-Uninstall` | Remove Seneschal, its PATH entry and its shortcuts |
+| `-Uninstall` | Remove Seneschal, its PATH entry, its shortcuts and the SDK it installed |
 | `-RemoveData` | With `-Uninstall`, also delete your data (see below) |
 
-When you pipe the script into `iex`, options cannot be passed on the line. Use environment variables instead (`SENESCHAL_VERSION`, `SENESCHAL_INSTALL_DIR`), or run it like this:
+When you pipe the script into `iex`, options cannot be passed on the line. Use environment variables instead (`SENESCHAL_VERSION`, `SENESCHAL_INSTALL_DIR`, `SENESCHAL_NO_DEV=1` for a lite install), or run it like this:
 
 ```powershell
 & ([scriptblock]::Create((irm https://raw.githubusercontent.com/araafario/seneschal/main/install.ps1))) -Version 1.0.5 -Desktop
@@ -54,9 +61,11 @@ seneschal logs       the end of the log
 seneschal version    the version
 seneschal update     look for a new version and install it
 seneschal extension new <Name> [folder]   start a new extension project
+seneschal dev        say whether you can make extensions here (dev install adds the .NET SDK)
+seneschal doctor     check the data folder, Claude Code, the .NET SDK and the MCP secret, and say what to fix
 ```
 
-Projects and containers Seneschal started keep running when it stops, and show up again as running when it starts. Inside the app, **Quit** is at the bottom of the sidebar and **Restart App** is in the Extension Manager.
+Projects and containers Seneschal started keep running when it stops, and show up again as running when it starts. Inside the app, **Quit** is at the bottom of the sidebar and **Restart App** is in Options, Extensions.
 
 ## Updates
 
@@ -93,6 +102,7 @@ Set `SENESCHAL_PORT` to choose a different port, and `SENESCHAL_DATA_DIR` to kee
 
 ## When something does not start
 
+- Run `seneschal doctor`: it checks what Seneschal needs and says what to fix.
 - Run `seneschal logs` and read the end of it. The address is also in `seneschal status`.
 - **The page has no styling and shows a huge icon.** You started `Seneschal.exe` from a build folder of an old version. Install a release, or rebuild from the current source.
 - **A message box says it did not start, or that `Seneschal.exe` was not found.** It shows the reason. `SeneschalApp.exe` has to sit in the same folder as `Seneschal.exe`, as it does in an install. Run from a checkout, it looks for the `Seneschal.exe` you built last under `src/Seneschal.Host/bin`, so build the app first. The same reasons are in the log.

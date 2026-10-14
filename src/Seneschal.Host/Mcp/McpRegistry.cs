@@ -10,7 +10,7 @@ public sealed record McpEntry(string Source, McpTool Tool);
 /// Collects the MCP tools of everything that is on: the app itself, the tools compiled into it and the tools of every loaded extension.
 /// It asks again on every call, so an extension that is imported, updated, turned off or removed shows up or goes away at once.
 /// </summary>
-public sealed class McpRegistry(DllExtensions extensions, IToolRegistry tools, IEnumerable<IToolModule> hostModules, HostMcpTools hostTools, IServiceProvider services, ILogger<McpRegistry> log)
+public sealed class McpRegistry(DllExtensions extensions, IToolRegistry tools, IEnumerable<IToolModule> hostModules, HostMcpTools hostTools, Core.ExtensionServiceHub hub, ILogger<McpRegistry> log)
 {
     public IReadOnlyList<McpEntry> All()
     {
@@ -21,7 +21,7 @@ public sealed class McpRegistry(DllExtensions extensions, IToolRegistry tools, I
         {
             try
             {
-                foreach (var tool in provider.McpTools(services))
+                foreach (var tool in provider.McpTools(hub.Host))
                 {
                     if (names.Add(tool.Name)) entries.Add(new McpEntry(source, tool));
                     else log.LogWarning("MCP tool {Tool} from {Source} was skipped because the name is taken", tool.Name, source);

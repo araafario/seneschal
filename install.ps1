@@ -7,11 +7,18 @@ Downloads the newest release from GitHub, checks its checksum, puts it in %LOCAL
 user's PATH and adds a Start menu shortcut. Running it again updates an existing install. The settings and data in %AppData%\Seneschal
 are never touched, except by -Uninstall -RemoveData.
 
+It also installs the .NET SDK (unless one of version 10 or newer is already there), which is what lets you and the assistant make extensions
+without Visual Studio. The SDK goes in %LOCALAPPDATA%\Seneschal\dotnet, for this user only. Use -NoDev to skip it: Seneschal then runs as
+it is, and the developer tools stay hidden until you run seneschal dev install.
+
 .EXAMPLE
 irm https://raw.githubusercontent.com/araafario/seneschal/main/install.ps1 | iex
 
 .EXAMPLE
 & ([scriptblock]::Create((irm https://raw.githubusercontent.com/araafario/seneschal/main/install.ps1))) -Version 1.0.5
+
+.EXAMPLE
+& ([scriptblock]::Create((irm https://raw.githubusercontent.com/araafario/seneschal/main/install.ps1))) -NoDev
 
 .EXAMPLE
 .\install.ps1 -Zip .\Seneschal-1.0.5-win-x64.zip
@@ -35,8 +42,11 @@ Do not add the Start menu shortcut.
 .PARAMETER Desktop
 Also add a shortcut on the desktop.
 
+.PARAMETER NoDev
+Do not install the .NET SDK. Also read from SENESCHAL_NO_DEV=1, which is the way to choose it when the script is piped into iex.
+
 .PARAMETER Uninstall
-Remove Seneschal, its PATH entry and its shortcut.
+Remove Seneschal, its PATH entry and its shortcut, and the .NET SDK it installed.
 
 .PARAMETER RemoveData
 With -Uninstall: also delete %AppData%\Seneschal (projects, startups, chat history, imported extensions).
@@ -47,6 +57,7 @@ param(
     [string]$Zip,
     [switch]$NoPath,
     [switch]$NoShortcut,
+    [switch]$NoDev,
     [switch]$Desktop,
     [switch]$Uninstall,
     [switch]$RemoveData
@@ -70,17 +81,55 @@ function Invoke-Seneschal-Install {
         if (Test-Path $exe) { & $exe stop *> $null }
     }
 
-    function Remove-FromPath {
+    # The SDK Seneschal installs lives in a folder of its own, so a system install is never touched and removing Seneschal can remove it
+    $sdkDir = if ($env:SENESCHAL_DOTNET_DIR) { $env:SENESCHAL_DOTNET_DIR } else { Join-Path $env:LOCALAPPDATA 'Seneschal\dotnet' }
+    $lite = $NoDev -or ($env:SENESCHAL_NO_DEV -eq '1')
+
+    function Remove-FromPath([string]$folder = $InstallDir) {
         $current = [Environment]::GetEnvironmentVariable('Path', 'User')
         if (-not $current) { return }
-        $kept = $current -split ';' | Where-Object { $_ -and $_.TrimEnd('\') -ine $InstallDir.TrimEnd('\') }
+        $kept = $current -split ';' | Where-Object { $_ -and $_.TrimEnd('\') -ine $folder.TrimEnd('\') }
         [Environment]::SetEnvironmentVariable('Path', ($kept -join ';'), 'User')
+    }
+
+    # The dotnet that has an SDK of version 10 or newer, or nothing
+    function Find-Sdk {
+        $exe = Join-Path $sdkDir 'dotnet.exe'
+        foreach ($candidate in 'dotnet', $exe, (Join-Path $env:ProgramFiles 'dotnet\dotnet.exe'), (Join-Path $env:LOCALAPPDATA 'Microsoft\dotnet\dotnet.exe')) {
+            try {
+                $list = & $candidate --list-sdks 2>$null
+                if ($LASTEXITCODE -eq 0 -and ($list | Where-Object { $_ -match '^(\d+)\.' -and [int]$Matches[1] -ge 10 })) { return $candidate }
+            }
+            catch { }
+        }
+    }
+
+    function Install-Sdk([string]$work) {
+        if (Find-Sdk) { Write-Host 'The .NET SDK is already installed'; return }
+        Write-Host 'Installing the .NET 10 SDK, so you can make extensions (a large download, use -NoDev to skip it)'
+        try {
+            $script = Join-Path $work 'dotnet-install.ps1'
+            Invoke-WebRequest -Uri 'https://dot.net/v1/dotnet-install.ps1' -OutFile $script -UseBasicParsing
+            & $script -Channel 10.0 -InstallDir $sdkDir -NoPath | Out-Null
+            if (-not (Test-Path (Join-Path $sdkDir 'dotnet.exe'))) { throw 'the SDK was not found after the install' }
+            if (-not $NoPath) {
+                $current = [Environment]::GetEnvironmentVariable('Path', 'User')
+                $has = $current -and ($current -split ';' | Where-Object { $_ -and $_.TrimEnd('\') -ieq $sdkDir.TrimEnd('\') })
+                if (-not $has) { [Environment]::SetEnvironmentVariable('Path', ((@($sdkDir, $current) | Where-Object { $_ }) -join ';'), 'User') }
+                $env:Path = "$sdkDir;$env:Path"
+            }
+        }
+        catch {
+            # The app itself is installed: this is only the extra, and seneschal dev install tries it again
+            Write-Host "Could not install the .NET SDK ($($_.Exception.Message)). Run seneschal dev install to try again" -ForegroundColor Yellow
+        }
     }
 
     if ($Uninstall) {
         Stop-Seneschal
         if (Test-Path $InstallDir) { Remove-Item $InstallDir -Recurse -Force }
         Remove-FromPath
+        if (Test-Path $sdkDir) { Remove-FromPath $sdkDir; Remove-Item $sdkDir -Recurse -Force }
         foreach ($link in $shortcut, $desktopShortcut) { if (Test-Path $link) { Remove-Item $link -Force } }
         if ($RemoveData) {
             $data = if ($env:SENESCHAL_DATA_DIR) { $env:SENESCHAL_DATA_DIR } else { Join-Path $env:APPDATA 'Seneschal' }
@@ -169,9 +218,12 @@ function Invoke-Seneschal-Install {
             }
         }
 
+        if (-not $lite) { Install-Sdk $work }
+
         Write-Host ''
         Write-Host "Seneschal $label installed to $InstallDir"
         Write-Host 'Run seneschal in a terminal, or open Seneschal from the Start menu'
+        if ($lite) { Write-Host 'The developer tools are off because the .NET SDK was skipped. Run seneschal dev install to add it' }
     }
     finally {
         Remove-Item $work -Recurse -Force -ErrorAction SilentlyContinue

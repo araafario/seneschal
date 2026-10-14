@@ -1,14 +1,16 @@
 @inject GroupIcons GroupIconService
+@inject IToolRegistry Registry
 
+@* The icon of a group (give Group) or of one tool (give ToolId): the same picker, and the same way back to the default *@
 <MudDialog>
     <TitleContent>
-        <MudText Typo="Typo.h6">Icon for @Group</MudText>
+        <MudText Typo="Typo.h6">Icon for @Label</MudText>
     </TitleContent>
     <DialogContent>
         <IconPicker Value="@_current" ValueChanged="Pick" />
     </DialogContent>
     <DialogActions>
-        <MudButton OnClick="Reset" Disabled="!GroupIconService.IsCustom(Group)">Reset to default</MudButton>
+        <MudButton OnClick="Reset" Disabled="!IsCustom">Reset to default</MudButton>
         <MudButton OnClick="Close">Close</MudButton>
     </DialogActions>
 </MudDialog>
@@ -16,22 +18,33 @@
 @code {
     [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = default!;
 
-    [Parameter, EditorRequired] public string Group { get; set; } = "";
+    [Parameter] public string? Group { get; set; }
+
+    [Parameter] public string? ToolId { get; set; }
 
     private string _current = "";
 
-    protected override void OnParametersSet() => _current = GroupIconService.Key(Group);
+    private ToolMetadata? Tool => ToolId is null ? null : Registry.Installed.FirstOrDefault(t => t.Id == ToolId);
+
+    private string Label => Tool?.Title ?? ToolId ?? Group ?? "";
+
+    private bool IsCustom => ToolId is not null ? GroupIconService.IsToolCustom(ToolId) : GroupIconService.IsCustom(Group ?? "");
+
+    protected override void OnParametersSet() =>
+        _current = Tool is { } tool ? GroupIconService.ToolKey(tool) ?? "" : GroupIconService.Key(Group ?? "");
 
     private void Pick(string key)
     {
-        GroupIconService.Set(Group, key);
+        if (ToolId is not null) GroupIconService.SetTool(ToolId, key);
+        else GroupIconService.Set(Group ?? "", key);
         MudDialog.Close(DialogResult.Ok(key));
     }
 
     private void Reset()
     {
-        GroupIconService.Reset(Group);
-        MudDialog.Close(DialogResult.Ok(GroupIconService.Key(Group)));
+        if (ToolId is not null) GroupIconService.ResetTool(ToolId);
+        else GroupIconService.Reset(Group ?? "");
+        MudDialog.Close(DialogResult.Ok(""));
     }
 
     private void Close() => MudDialog.Cancel();

@@ -1,0 +1,9 @@
+<Project Sdk="Microsoft.NET.Sdk.Razor">
+
+  <!-- The shared build settings (target framework, SDK reference, packaging) come from extensions/Directory.Build.props. -->
+  <PropertyGroup>
+    <RootNamespace>Calculator</RootNamespace>
+    <ExtensionId>calculator</ExtensionId>
+  </PropertyGroup>
+
+</Project>

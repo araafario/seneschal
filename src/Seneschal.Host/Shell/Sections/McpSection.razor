@@ -1,0 +1,110 @@
+@implements IDisposable
+@inject AssistantSettings Settings
+@inject Seneschal.Mcp.McpAddress Address
+@inject IDialogService Dialogs
+@inject IJSRuntime JS
+@inject ISnackbar Snackbar
+
+<OptionHeader Title="MCP" Description="Let your own AI use the tools in Seneschal: Claude Code, Cursor, VS Code, Claude Desktop or any client that speaks MCP" />
+
+<h3 class="opt-group">Connection</h3>
+<div class="opt-stack">
+    <SettingCard Key="connection" Icon="@Icons.Material.Outlined.Cable" Title="Server" Description="Only this machine can connect, and only with the secret. Seneschal has to be running">
+        <div id="mcp-connection">
+            <div class="kv">
+                <span class="kv-label">Address</span>
+                @if (Address.Url is { } url)
+                {
+                    <code class="kv-value" id="mcp-url">@url</code>
+                    <MudButton Size="Size.Small" Variant="Variant.Outlined" OnClick="() => CopyAsync(url)" id="mcp-copy-url">Copy</MudButton>
+                }
+                else
+                {
+                    <span class="kv-value is-dim">Not listening yet</span>
+                }
+            </div>
+            <div class="kv">
+                <span class="kv-label">Secret</span>
+                <code class="kv-value" id="mcp-secret">@(_reveal ? Settings.Secret : new string('•', 24))</code>
+                <MudButton Size="Size.Small" Variant="Variant.Text" OnClick="() => _reveal = !_reveal" id="mcp-reveal">@(_reveal ? "Hide" : "Show")</MudButton>
+                <MudButton Size="Size.Small" Variant="Variant.Outlined" OnClick="() => CopyAsync(Settings.Secret)" id="mcp-copy-secret">Copy</MudButton>
+                <MudButton Size="Size.Small" Variant="Variant.Outlined" Color="Color.Error" OnClick="ResetSecretAsync" id="mcp-reset-secret">Reset</MudButton>
+            </div>
+        </div>
+    </SettingCard>
+</div>
+
+<h3 class="opt-group">Connect Your AI</h3>
+<div class="opt-stack">
+    @foreach (var client in Clients)
+    {
+        <SettingCard Key="@($"client:{client.Id}")" Icon="@client.Icon" Title="@client.Name" Description="@client.Note">
+            <Control>
+                @if (Address.Url is { } address)
+                {
+                    <MudButton Size="Size.Small" Variant="Variant.Outlined" OnClick="() => CopyAsync(client.Build(address, Settings.Secret))" id="@($"mcp-copy-{client.Id}")">@client.Button</MudButton>
+                }
+            </Control>
+        </SettingCard>
+    }
+</div>
+
+<h3 class="opt-group">Approvals</h3>
+<div class="opt-stack">
+    <SettingCard Key="ask-before-changes" Icon="@Icons.Material.Outlined.GppMaybe" Title="Ask before every change"
+                 Description="Applies to every client. Deleting always asks. The question appears in the assistant panel, so keep Seneschal open">
+        <Control>
+            <MudSwitch T="bool" Value="@Settings.AskBeforeChanges" ValueChanged="v => Settings.AskBeforeChanges = v" Color="Color.Primary" aria-label="Ask before every change" id="mcp-ask" />
+        </Control>
+    </SettingCard>
+</div>
+
+@code {
+    private sealed record Client(string Id, string Name, string Icon, string Note, string Button, Func<string, string, string> Build);
+
+    // How each kind of client is told about the server. The address and the secret are filled in when it is copied
+    private static readonly Client[] Clients =
+    [
+        new("claude-code", "Claude Code", Icons.Material.Outlined.Terminal, "Run it once in a terminal", "Copy Command",
+            (url, secret) => $"claude mcp add --transport http seneschal {url} --header \"Authorization: Bearer {secret}\""),
+        new("cursor", "Cursor", Icons.Material.Outlined.Code, "Paste into mcp.json in your .cursor folder", "Copy Config",
+            (url, secret) => $$"""{ "mcpServers": { "seneschal": { "url": "{{url}}", "headers": { "Authorization": "Bearer {{secret}}" } } } }"""),
+        new("vscode", "VS Code", Icons.Material.Outlined.Code, "Paste into mcp.json (Command Palette, MCP: Open User Configuration)", "Copy Config",
+            (url, secret) => $$"""{ "servers": { "seneschal": { "type": "http", "url": "{{url}}", "headers": { "Authorization": "Bearer {{secret}}" } } } }"""),
+        new("claude-desktop", "Claude Desktop", Icons.Material.Outlined.DesktopWindows, "Paste into claude_desktop_config.json. It needs Node.js for the mcp-remote bridge", "Copy Config",
+            (url, secret) => $$"""{ "mcpServers": { "seneschal": { "command": "npx", "args": ["-y", "mcp-remote", "{{url}}", "--header", "Authorization:Bearer {{secret}}"] } } }"""),
+        new("other", "Any other client", Icons.Material.Outlined.Public, "Anything that speaks MCP over HTTP: use the address and this header", "Copy Header",
+            (url, secret) => $"Authorization: Bearer {secret}"),
+    ];
+
+    private bool _reveal;
+
+    protected override void OnInitialized() => Settings.Changed += OnChanged;
+
+    public void Dispose() => Settings.Changed -= OnChanged;
+
+    private void OnChanged() => _ = InvokeAsync(StateHasChanged);
+
+    private async Task CopyAsync(string text)
+    {
+        try
+        {
+            await JS.InvokeVoidAsync("navigator.clipboard.writeText", text);
+            Snackbar.Add("Copied", Severity.Success);
+        }
+        catch (JSException)
+        {
+            Snackbar.Add("Could not copy", Severity.Error);
+        }
+    }
+
+    private async Task ResetSecretAsync()
+    {
+        var confirmed = await Dialogs.ShowMessageBoxAsync("Reset Secret",
+            "Make a new secret? Every client that uses the old one stops working until you copy the new setup into it",
+            yesText: "Reset", cancelText: "Cancel");
+        if (confirmed != true) return;
+        Settings.RegenerateSecret();
+        _reveal = false;
+    }
+}

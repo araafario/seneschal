@@ -1,12 +1,13 @@
 # Seneschal
 
-A local developer toolbelt: a Blazor Web App (interactive server, MudBlazor, .NET 10) whose tools are **extensions**.
-The built-in extension, **DevEnvironment**, runs Docker containers, .NET projects and single-spa microfrontends, orders them with Smart Startup, and follows their logs.
+A local daily helper: a Blazor Web App (interactive server, MudBlazor, .NET 10) with Claude and an MCP server built in, whose tools are all **extensions** that can be added or removed.
+The frame (shell, Options, assistant, MCP, `seneschal` command, updates) is general and ships with no extension. Nothing in it may depend on a particular extension.
+Tools live in their own repositories as packages (`.snx`) built against the `Seneschal.Sdk` NuGet package. The Dev Environment tools (Projects, Logs, Token) are in the separate LoopUp extension repository, not here.
 
 ## Read first
 
 - **UI work follows [docs/ui-guidelines.md](docs/ui-guidelines.md)**: wording, spacing, color, components and a checklist. Read it before touching any `.razor` or `.css` file.
-- Module docs: `src/Seneschal.Host/README.md` (the app), `src/Seneschal.Sdk/README.md` (what extensions build against), `extensions/DevEnvironment/README.md` (the tools).
+- Module docs: `src/Seneschal.Host/README.md` (the app), `src/Seneschal.Sdk/README.md` (what extensions build against).
 
 ## UI rules in short
 
@@ -28,9 +29,9 @@ The built-in extension, **DevEnvironment**, runs Docker containers, .NET project
 
 ```
 src/Seneschal.Sdk/        what an extension compiles against
-src/Seneschal.Host/       the app: shell, Extension Manager, Developer page, loader
+src/Seneschal.Host/       the app: shell, Options (with Projects for extension makers), loader
 src/Seneschal.Launcher/   SeneschalApp.exe: what the shortcuts start (no console window)
-extensions/DevEnvironment Projects and Logs (bundled with the app)
+extensions/                Only the build files for an extension made in Options, Projects. Nothing ships here
 docs/                     ui-guidelines.md
 assets/branding/          logo and icon
 artifacts/                build output only
@@ -39,19 +40,19 @@ artifacts/                build output only
 ## Build and run
 
 ```powershell
-.\dev.ps1                      # run from source, restarts the app on exit code 42
+.\dev.ps1                      # build, then run it through the launcher like an installed copy (hidden; -Attached runs it in this window)
 dotnet build Seneschal.slnx    # build everything
 ```
 
-- A running Seneschal locks `Seneschal.exe` and the staged extension files. Stop it before a full build, or build the extension alone with `dotnet build extensions/DevEnvironment`.
-- An extension that registers services needs an app restart to load a new build. One that registers none loads live.
+- A running Seneschal locks `Seneschal.exe` and the staged extension files. Stop it before a full build.
+- Every extension loads live, with or without services: each has a container of its own that is replaced when it is rebuilt, imported or removed. No app restart.
 
 ## Working safely
 
-- **Test destructive or repo-changing features on a copy of the repo**, never the real one. That means the Developer page (create, delete), anything that moves folders, and edits to `Seneschal.slnx` or `Seneschal.Host.csproj`. Run the copy of the app on its own port with `SENESCHAL_DATA_DIR` set to a scratch folder.
+- **Test destructive or repo-changing features on a copy of the repo**, never the real one. That means Options, Projects (create, delete), anything that moves folders, and edits to `Seneschal.slnx` or `Seneschal.Host.csproj`. Run the copy of the app on its own port with `SENESCHAL_DATA_DIR` set to a scratch folder.
 - Use throwaway containers and throwaway apps for runner tests. Never start, stop or kill the developer's own services, containers or running Seneschal.
 - Stop a test process by matching its scratch path, never by its name.
-- The Developer page acts on whichever repo the app runs from. A built-in extension (one in a `BundledExtension` item of the host project) can only be deleted after typing `seneschal`.
+- Options, Projects acts on whichever repo the app runs from. An extension in a `BundledExtension` item of the host project can only be deleted after typing `seneschal`.
 
 ## Conventions
 

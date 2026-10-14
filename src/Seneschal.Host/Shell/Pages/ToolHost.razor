@@ -5,7 +5,7 @@
 @if (_tool is null)
 {
     <PageShell Title="Tool not found" Icon="@Icons.Material.Outlined.ErrorOutline">
-        <MudAlert Severity="Severity.Warning">No tool with id '@Id' exists.</MudAlert>
+        <MudAlert Severity="Severity.Warning">No tool with the id '@Id'</MudAlert>
     </PageShell>
 }
 else if (!_tool.Persistent)
