@@ -1,0 +1,50 @@
+<Project>
+
+  <!--
+    Build rules for an extension. An outside author gets this file from the SDK package; the projects in this repo import it directly.
+
+    After a build the extension is staged as a folder, the same layout the app loads from:
+        <ExtensionArtifacts>/extensions/<ExtensionId>/
+            extension.json            the manifest (required)
+            <Name>.dll, *.pdb         the extension, plus the libraries it needs that the app does not provide
+            wwwroot/...               static files such as stylesheets (served by the app under /_ext/<id>/)
+    and zipped as a package:
+        <ExtensionArtifacts>/packages/<ExtensionId>.snx   (import this in the Extension Manager)
+  -->
+  <PropertyGroup>
+    <ExtensionId Condition="'$(ExtensionId)' == ''">$(MSBuildProjectName)</ExtensionId>
+    <ExtensionArtifacts Condition="'$(ExtensionArtifacts)' == ''">$(MSBuildProjectDirectory)\artifacts\</ExtensionArtifacts>
+    <ExtensionStageDir>$(ExtensionArtifacts)extensions\$(ExtensionId)\</ExtensionStageDir>
+    <ExtensionPackagePath>$(ExtensionArtifacts)packages\$(ExtensionId).snx</ExtensionPackagePath>
+    <!-- The app loads these once and shares them with every extension, so they are never packaged -->
+    <ExtensionProvidedAssemblies Condition="'$(ExtensionProvidedAssemblies)' == ''">Seneschal.Sdk;MudBlazor</ExtensionProvidedAssemblies>
+  </PropertyGroup>
+
+  <Target Name="StageExtension" AfterTargets="Build" Condition="'$(DesignTimeBuild)' != 'true'">
+    <Error Condition="!Exists('$(MSBuildProjectDirectory)\extension.json')"
+           Text="An extension needs an extension.json next to its project file (see the tutorial in the app)." />
+
+    <PropertyGroup>
+      <_ProvidedWrapped>;$(ExtensionProvidedAssemblies);</_ProvidedWrapped>
+    </PropertyGroup>
+
+    <ItemGroup>
+      <_StageFile Include="$(TargetPath)" />
+      <_StageFile Include="$(TargetDir)$(TargetName).pdb" Condition="Exists('$(TargetDir)$(TargetName).pdb')" />
+      <!-- Packages the extension uses that the app does not have; the SDK and MudBlazor stay out -->
+      <_StageLibrary Include="@(ReferenceCopyLocalPaths)" Condition="!$(_ProvidedWrapped.Contains(';%(Filename);'))" />
+      <_StageWeb Include="$(MSBuildProjectDirectory)\wwwroot\**\*" />
+    </ItemGroup>
+
+    <RemoveDir Directories="$(ExtensionStageDir)" />
+    <MakeDir Directories="$(ExtensionStageDir);$(ExtensionArtifacts)packages" />
+    <Copy SourceFiles="$(MSBuildProjectDirectory)\extension.json" DestinationFolder="$(ExtensionStageDir)" />
+    <Copy SourceFiles="@(_StageFile)" DestinationFolder="$(ExtensionStageDir)" />
+    <Copy SourceFiles="@(_StageLibrary)" DestinationFiles="@(_StageLibrary->'$(ExtensionStageDir)%(DestinationSubDirectory)%(Filename)%(Extension)')" />
+    <Copy SourceFiles="@(_StageWeb)" DestinationFiles="@(_StageWeb->'$(ExtensionStageDir)wwwroot\%(RecursiveDir)%(Filename)%(Extension)')" />
+
+    <ZipDirectory SourceDirectory="$(ExtensionStageDir)" DestinationFile="$(ExtensionPackagePath)" Overwrite="true" />
+    <Message Importance="high" Text="Extension '$(ExtensionId)' staged in $(ExtensionStageDir) and packaged as $(ExtensionPackagePath)" />
+  </Target>
+
+</Project>

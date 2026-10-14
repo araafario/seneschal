@@ -1,0 +1,70 @@
+@implements IDisposable
+@inject IToolRegistry Registry
+@inject NavigationManager Nav
+
+@* Home of the tools that set Persistent. A routed page is disposed whenever the user navigates away, so these tools are
+   mounted here instead, once, and only hidden when another page is open. Everything else is rendered by ToolHost. *@
+@foreach (var tool in Mounted)
+{
+    var active = tool.Id == _current;
+    <div @key="tool.ComponentType" class="@(active ? "persist-slot" : "persist-slot persist-hidden")" data-persistent-tool="@tool.Id">
+        <ToolPage Tool="tool" Active="active" />
+    </div>
+}
+
+@code {
+    private const string ToolsPrefix = "tools/";
+
+    /// <summary>The persistent tools opened so far, in the order they were first opened.</summary>
+    private readonly List<string> _opened = [];
+
+    private string? _current;
+
+    /// <summary>Opened tools that are still installed, turned on and persistent.</summary>
+    private List<ToolMetadata> Mounted =>
+        _opened.Select(Registry.Get).OfType<ToolMetadata>().Where(t => t.Persistent).ToList();
+
+    protected override void OnInitialized()
+    {
+        Registry.Changed += OnRegistryChanged;
+        Nav.LocationChanged += OnLocationChanged;
+        Track(Nav.Uri);
+    }
+
+    public void Dispose()
+    {
+        Registry.Changed -= OnRegistryChanged;
+        Nav.LocationChanged -= OnLocationChanged;
+    }
+
+    private void OnLocationChanged(object? sender, Microsoft.AspNetCore.Components.Routing.LocationChangedEventArgs e) =>
+        _ = InvokeAsync(() =>
+        {
+            Track(e.Location);
+            StateHasChanged();
+        });
+
+    private void OnRegistryChanged() => _ = InvokeAsync(() =>
+    {
+        // A tool that was turned off, removed or is no longer persistent loses its kept state
+        _opened.RemoveAll(id => Registry.Get(id) is not { Persistent: true });
+        Track(Nav.Uri);
+        StateHasChanged();
+    });
+
+    /// <summary>Works out which tool the URL shows, and starts keeping it if it is persistent.</summary>
+    private void Track(string uri)
+    {
+        var path = Nav.ToBaseRelativePath(uri);
+        var end = path.IndexOfAny(['?', '#']);
+        if (end >= 0) path = path[..end];
+
+        _current = null;
+        if (!path.StartsWith(ToolsPrefix, StringComparison.OrdinalIgnoreCase)) return;
+
+        var id = Uri.UnescapeDataString(path[ToolsPrefix.Length..].Trim('/'));
+        _current = id;
+        if (Registry.Get(id) is { Persistent: true } && !_opened.Contains(id, StringComparer.OrdinalIgnoreCase))
+            _opened.Add(id);
+    }
+}

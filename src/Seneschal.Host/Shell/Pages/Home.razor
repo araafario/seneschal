@@ -1,0 +1,41 @@
+@page "/"
+@implements IDisposable
+@inject IToolRegistry Registry
+
+<PageTitle>Seneschal</PageTitle>
+
+<div class="home-banner">
+    <MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="pa-8">
+        <div class="home-hero">
+            <img src="@Assets["seneschal.png"]" alt="" class="home-logo" width="120" height="120" />
+            <div>
+                <MudText Typo="Typo.h3" Class="home-title">Welcome to Seneschal</MudText>
+                <MudText Typo="Typo.subtitle1" Class="home-tagline">A seneschal is a senior administrative official, steward, or major-domo in the household of a medieval or early modern king, prince, nobleman, or high-ranking church dignitary, and now you have one of your own.</MudText>
+            </div>
+        </div>
+
+        <MudText Typo="Typo.h6" Class="section-title">All tools</MudText>
+        <MudGrid Spacing="2">
+            @foreach (var tool in Registry.All)
+            {
+                <MudItem xs="12" md="6" lg="4">
+                    <ToolCard Tool="tool" />
+                </MudItem>
+            }
+        </MudGrid>
+        @if (!Registry.All.Any())
+        {
+            <MudText Style="opacity:.7" id="no-tools">
+                No tools yet. Create one in <MudLink Href="/developer">Developer</MudLink> or import one in the <MudLink Href="/extensions">Extension Manager</MudLink>.
+            </MudText>
+        }
+    </MudContainer>
+</div>
+
+@code {
+    protected override void OnInitialized() => Registry.Changed += OnChanged;
+
+    public void Dispose() => Registry.Changed -= OnChanged;
+
+    private void OnChanged() => _ = InvokeAsync(StateHasChanged);
+}

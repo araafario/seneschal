@@ -1,0 +1,8 @@
+<Solution>
+  <Project Path="src/Seneschal.Host/Seneschal.Host.csproj" />
+  <Project Path="src/Seneschal.Sdk/Seneschal.Sdk.csproj" />
+  <Project Path="src/Seneschal.Launcher/Seneschal.Launcher.csproj" />
+  <Folder Name="/extensions/">
+    <Project Path="extensions/DevEnvironment/DevEnvironment.csproj" />
+  </Folder>
+</Solution>

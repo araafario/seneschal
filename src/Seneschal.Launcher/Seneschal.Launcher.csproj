@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- What the Start menu and desktop shortcuts start. A program without a console, so no black window flashes: it runs
+       "Seneschal.exe open" hidden and ends. It only uses the .NET that Seneschal.exe already brings, so it adds almost nothing. -->
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <AssemblyName>SeneschalApp</AssemblyName>
+    <RootNamespace>Seneschal.Launcher</RootNamespace>
+    <ApplicationIcon>..\Seneschal.Host\seneschal.ico</ApplicationIcon>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+
+  <!-- Same rule as the app: the release pipeline passes -p:AppVersion=1.0.37 -->
+  <PropertyGroup>
+    <Version Condition="'$(AppVersion)' != ''">$(AppVersion)</Version>
+    <Version Condition="'$(AppVersion)' == ''">0.0.0-dev</Version>
+  </PropertyGroup>
+
+</Project>

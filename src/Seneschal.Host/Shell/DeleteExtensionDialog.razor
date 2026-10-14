@@ -1,0 +1,67 @@
+@using Seneschal.Dev
+
+<MudDialog>
+    <TitleContent>
+        <MudText Typo="Typo.h6">Delete extension</MudText>
+    </TitleContent>
+    <DialogContent>
+        <div class="del-target" id="del-target">
+            <MudIcon Icon="@Icons.Material.Outlined.Extension" />
+            <div class="del-names">
+                <div class="del-title">@Extension.Title</div>
+                <div class="del-folder">extensions/@Extension.Name</div>
+            </div>
+            @if (Extension.Shipped)
+            {
+                <span class="run-badge">built-in</span>
+            }
+        </div>
+
+        @if (Extension.Shipped)
+        {
+            <MudAlert Severity="Severity.Warning" Dense="true" Class="mb-4" id="del-builtin">
+                Built into Seneschal. Deleting it also removes it from the app build
+            </MudAlert>
+        }
+
+        <div class="ne-section">What happens</div>
+        <ul class="del-list">
+            <li>The project moves to <code>.deleted/extensions</code> and can be moved back</li>
+            <li>It is removed from <code>@DevMode.SolutionName</code></li>
+            <li>Its build output and package are deleted</li>
+            <li>Its tools disappear from the app</li>
+            @if (Extension.Shipped)
+            {
+                <li class="del-strong">It is removed from the app build (<code>Seneschal.Host.csproj</code>)</li>
+            }
+        </ul>
+
+        @if (Extension.Shipped)
+        {
+            <MudTextField T="string" @bind-Value="_typed" Label="Type seneschal to confirm" Placeholder="seneschal" Immediate="true" Variant="Variant.Outlined"
+                          Margin="Margin.Dense" Class="mt-4" id="del-confirm" AutoFocus="true" />
+        }
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Cancel">Cancel</MudButton>
+        <MudButton Color="Color.Error" Variant="Variant.Filled" OnClick="Confirm" Disabled="@(!Confirmed)" id="del-delete">Delete</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = default!;
+
+    [Parameter, EditorRequired] public WorkspaceExtension Extension { get; set; } = default!;
+
+    private string _typed = "";
+
+    /// <summary>An ordinary extension is deleted with one click. A built-in one asks for the name of the app to be typed first.</summary>
+    private bool Confirmed => !Extension.Shipped || _typed.Trim().Equals("seneschal", StringComparison.OrdinalIgnoreCase);
+
+    private void Confirm()
+    {
+        if (Confirmed) MudDialog.Close(DialogResult.Ok(true));
+    }
+
+    private void Cancel() => MudDialog.Cancel();
+}

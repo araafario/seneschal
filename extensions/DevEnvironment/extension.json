@@ -1,0 +1,11 @@
+{
+  "id": "dev-environment",
+  "name": "Dev Environment",
+  "version": "1.0.0",
+  "description": "Run Docker, .NET and microfrontends and follow their logs",
+  "entry": "DevEnvironment.dll",
+  "sdk": "1.2",
+  "styles": [ "devenvironment.css" ],
+  "shares": [],
+  "uses": []
+}

@@ -1,0 +1,191 @@
+@using Seneschal.Dev
+@implements IDisposable
+@inherits LayoutComponentBase
+
+<MudThemeProvider Theme="_theme" IsDarkMode="_dark" />
+
+<MudLayout Class="@(_dark ? "app-dark" : "app-light")">
+    @* The popups sit inside the themed layout so that dialogs and menus get the same colors (the --accent, --card, --border variables) *@
+    <MudPopoverProvider />
+    <MudDialogProvider />
+    <MudSnackbarProvider />
+    <MudDrawer Open="true" Variant="DrawerVariant.Persistent" Breakpoint="Breakpoint.None" Elevation="0" Class="@($"app-drawer {(_expanded ? "" : "is-mini")}")">
+        <div class="drawer-header">
+            <MudTooltip Text="Toggle navigation" Placement="Placement.Right">
+                <MudIconButton Icon="@Icons.Material.Filled.Menu" Class="sq-btn" Color="Color.Inherit"
+                               OnClick="ToggleSidebar" />
+            </MudTooltip>
+            @if (_expanded)
+            {
+                <MudTooltip Text="@(_dark ? "Dark mode" : "Light mode")" Placement="Placement.Bottom">
+                    <MudSwitch T="bool" Value="_dark" ValueChanged="SetDark" Class="theme-toggle" Color="Color.Primary" Size="Size.Small"
+                               ThumbIcon="@(_dark ? Icons.Material.Filled.DarkMode : Icons.Material.Filled.LightMode)" />
+                </MudTooltip>
+            }
+        </div>
+        <ToolSearch Expanded="_expanded" OnExpandRequested="ExpandSidebar" />
+        <div class="drawer-scroll">
+            <NavMenu Expanded="_expanded" />
+        </div>
+        <MudNavMenu Class="app-nav drawer-footer">
+            <MudDivider Class="my-1" />
+            <MudNavLink Href="/extensions" Icon="@Icons.Material.Outlined.Extension" title="Extension Manager">Extension Manager</MudNavLink>
+            @if (Dev.Enabled)
+            {
+                <MudNavLink Href="/developer" Icon="@Icons.Material.Outlined.Code" title="Developer">Developer</MudNavLink>
+            }
+            @if (Seneschal.Cli.EngineMode.Active)
+            {
+                @* Running hidden, there is no window to close: this is how the app is stopped from inside *@
+                <MudNavLink OnClick="QuitAsync" Icon="@Icons.Material.Outlined.PowerSettingsNew" title="Quit Seneschal" id="quit-app">Quit</MudNavLink>
+            }
+        </MudNavMenu>
+    </MudDrawer>
+    <MudMainContent Class="@($"app-main {(_expanded ? "" : "is-mini")}")">
+        <UpdateNotice />
+        @Body
+        <ToolSurface />
+    </MudMainContent>
+    <AssistantWidget />
+</MudLayout>
+
+@code {
+    [Inject] private UiSettings Settings { get; set; } = default!;
+    [Inject] private DevMode Dev { get; set; } = default!;
+    [Inject] private ExtensionAssets ExtensionFiles { get; set; } = default!;
+    [Inject] private IJSRuntime JS { get; set; } = default!;
+    [Inject] private NavigationManager Nav { get; set; } = default!;
+    [Inject] private IDialogService Dialogs { get; set; } = default!;
+    [Inject] private IHostApplicationLifetime Lifetime { get; set; } = default!;
+
+    private async Task QuitAsync()
+    {
+        var quit = await Dialogs.ShowMessageBoxAsync("Quit Seneschal", "Projects and containers it started keep running", yesText: "Quit", cancelText: "Cancel");
+        if (quit == true) Lifetime.StopApplication();
+    }
+
+    private bool _expanded;
+    private bool _dark;
+
+    protected override void OnInitialized()
+    {
+        _expanded = Settings.SidebarExpanded;
+        _dark = Settings.DarkMode;
+        ExtensionFiles.Changed += OnAssetsChanged;
+        Nav.LocationChanged += OnLocationChanged;
+    }
+
+    public void Dispose()
+    {
+        ExtensionFiles.Changed -= OnAssetsChanged;
+        Nav.LocationChanged -= OnLocationChanged;
+    }
+
+    // The page the link leads to is drawn in the same pass as this layout, so the loading bar can go once this has rendered
+    private bool _pageChanged;
+
+    private void OnLocationChanged(object? sender, Microsoft.AspNetCore.Components.Routing.LocationChangedEventArgs e)
+    {
+        _pageChanged = true;
+        _ = InvokeAsync(StateHasChanged);
+    }
+
+    // An extension imported while the page is open brings stylesheets the page has not loaded yet
+    private void OnAssetsChanged() => _ = InvokeAsync(LinkStylesAsync);
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender) await LinkStylesAsync();
+        if (!firstRender && !_pageChanged) return;
+        _pageChanged = false;
+        try
+        {
+            await JS.InvokeVoidAsync("seneschalNavBusy", false);
+        }
+        catch (JSDisconnectedException)
+        {
+            // The browser went away
+        }
+    }
+
+    private async Task LinkStylesAsync()
+    {
+        try
+        {
+            await JS.InvokeVoidAsync("seneschalStyles", ExtensionFiles.StyleUrls);
+        }
+        catch (JSDisconnectedException)
+        {
+            // The browser went away; nothing to update
+        }
+    }
+
+    private void ToggleSidebar() => SetSidebar(!_expanded);
+
+    private void ExpandSidebar() => SetSidebar(true);
+
+    private void SetSidebar(bool expanded)
+    {
+        _expanded = expanded;
+        Settings.SidebarExpanded = expanded;
+    }
+
+    private void SetDark(bool dark)
+    {
+        _dark = dark;
+        Settings.DarkMode = dark;
+    }
+
+    private readonly MudTheme _theme = new()
+    {
+        PaletteDark = new PaletteDark
+        {
+            Primary = "#60cdff",
+            PrimaryContrastText = "#0b0b0b",
+            Background = "#1c1c1c",
+            Surface = "#2b2b2b",
+            DrawerBackground = "#202020",
+            DrawerText = "#ffffff",
+            DrawerIcon = "#ffffff",
+            TextPrimary = "#ffffff",
+            TextSecondary = "rgba(255,255,255,0.85)",
+            ActionDefault = "#ffffff",
+            LinesDefault = "rgba(255,255,255,0.14)",
+            Divider = "rgba(255,255,255,0.14)",
+        },
+        PaletteLight = new PaletteLight
+        {
+            Primary = "#1f4fa3",
+            Secondary = "#9c2424",
+            Background = "#f4f6fb",
+            Surface = "#ffffff",
+            DrawerBackground = "#e8edf6",
+            DrawerText = "#1b2233",
+            DrawerIcon = "#1b2233",
+            TextPrimary = "#1b2233",
+            TextSecondary = "rgba(27,34,51,0.74)",
+            ActionDefault = "#1b2233",
+            LinesDefault = "rgba(27,34,51,0.14)",
+            Divider = "rgba(27,34,51,0.14)",
+        },
+        LayoutProperties = new LayoutProperties { DefaultBorderRadius = "4px" },
+        // The compact scale (see docs/ui-guidelines.md): 26px page title, 14px body, 13px for secondary text. One font family everywhere
+        Typography = new Typography
+        {
+            Default = new DefaultTypography { FontFamily = Font, FontSize = ".875rem", FontWeight = "400", LineHeight = "1.4", LetterSpacing = "normal" },
+            H3 = new H3Typography { FontFamily = Font, FontSize = "2rem", FontWeight = "600", LineHeight = "1.2", LetterSpacing = "normal" },
+            H4 = new H4Typography { FontFamily = Font, FontSize = "1.625rem", FontWeight = "600", LineHeight = "1.25", LetterSpacing = "normal" },
+            H5 = new H5Typography { FontFamily = Font, FontSize = "1.25rem", FontWeight = "600", LineHeight = "1.3", LetterSpacing = "normal" },
+            H6 = new H6Typography { FontFamily = Font, FontSize = "1.0625rem", FontWeight = "600", LineHeight = "1.3", LetterSpacing = "normal" },
+            Subtitle1 = new Subtitle1Typography { FontFamily = Font, FontSize = ".9375rem", FontWeight = "400", LineHeight = "1.4", LetterSpacing = "normal" },
+            Subtitle2 = new Subtitle2Typography { FontFamily = Font, FontSize = ".9375rem", FontWeight = "600", LineHeight = "1.35", LetterSpacing = "normal" },
+            Body1 = new Body1Typography { FontFamily = Font, FontSize = ".875rem", FontWeight = "400", LineHeight = "1.4", LetterSpacing = "normal" },
+            Body2 = new Body2Typography { FontFamily = Font, FontSize = ".875rem", FontWeight = "400", LineHeight = "1.4", LetterSpacing = "normal" },
+            Button = new ButtonTypography { FontFamily = Font, FontSize = ".875rem", FontWeight = "600", LineHeight = "1.4", LetterSpacing = "normal", TextTransform = "none" },
+            Caption = new CaptionTypography { FontFamily = Font, FontSize = ".8125rem", FontWeight = "400", LineHeight = "1.35", LetterSpacing = "normal" },
+            Overline = new OverlineTypography { FontFamily = Font, FontSize = ".8125rem", FontWeight = "600", LineHeight = "1.35", LetterSpacing = ".04em" },
+        },
+    };
+
+    private static readonly string[] Font = ["Segoe UI Variable", "Segoe UI", "system-ui", "sans-serif"];
+}

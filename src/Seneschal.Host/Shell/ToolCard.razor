@@ -1,0 +1,13 @@
+<MudLink Href="@($"/tools/{Tool.Id}")" Underline="Underline.None" Class="tool-link">
+    <MudCard Class="tool-card" Elevation="0">
+        <div class="tool-icon"><MudIcon Icon="@Tool.Icon" Size="Size.Large" /></div>
+        <div class="tool-text">
+            <MudText Typo="Typo.subtitle2" Class="tool-title">@Tool.Title</MudText>
+            <MudText Typo="Typo.body2" Class="tool-desc">@Tool.Description</MudText>
+        </div>
+    </MudCard>
+</MudLink>
+
+@code {
+    [Parameter, EditorRequired] public ToolMetadata Tool { get; set; } = default!;
+}

@@ -1,0 +1,388 @@
+@implements IDisposable
+@inject ClaudeChat Chat
+@inject ChatHistory History
+@inject Seneschal.Mcp.McpApprovals Approvals
+@inject Seneschal.Mcp.McpRegistry Registry
+@inject IToolRegistry Tools
+@inject AssistantSettings Settings
+@inject IDialogService Dialogs
+@inject ISnackbar Snackbar
+@inject IJSRuntime JS
+
+@* The assistant lives in the bottom right corner of every page: a round button that says what it is on hover, and a chat panel.
+   The panel draws its frame first and its content a moment later, so a click is answered at once even when the app is busy. *@
+@if (!_open)
+{
+    <button type="button" class="@($"as-launcher {(Chat.Running ? "is-busy" : "")}")" @onclick="OpenAsync" id="as-launch" aria-label="@(Chat.Running ? "Open the assistant, it is working" : "Open the assistant")">
+        <span class="as-launcher-text">@(Chat.Running ? "Working" : "Ask your Seneschal anything")</span>
+        <span class="as-launcher-icon">
+            <MudIcon Icon="@Icons.Material.Outlined.AutoAwesome" />
+            @if (Approvals.Pending.Count > 0)
+            {
+                <span class="as-launcher-badge" id="as-badge"></span>
+            }
+        </span>
+    </button>
+}
+else
+{
+    <section class="as-panel" id="as-panel" aria-label="Assistant" tabindex="-1" @onkeydown="OnPanelKey">
+        @if (_view == View.History)
+        {
+            <header class="as-head">
+                <MudTooltip Text="Back"><MudIconButton Icon="@Icons.Material.Outlined.ArrowBack" Color="Color.Inherit" Size="Size.Small" OnClick="() => Show(View.Chat)" id="as-back" aria-label="Back" /></MudTooltip>
+                <span class="as-title">History</span>
+                <span class="as-gap"></span>
+                <MudTooltip Text="Close"><MudIconButton Icon="@Icons.Material.Outlined.Close" Color="Color.Inherit" Size="Size.Small" OnClick="Close" id="as-close-panel" aria-label="Close" /></MudTooltip>
+            </header>
+            <div class="as-history" id="as-history">
+                @if (History.All.Count == 0)
+                {
+                    <div class="run-empty as-history-empty" id="as-history-empty">No past chats</div>
+                }
+                @foreach (var chat in History.All)
+                {
+                    var id = chat.Id;
+                    <div class="@($"as-history-row {(id == Chat.Id ? "is-current" : "")}")" data-chat="@id">
+                        <button type="button" class="as-history-open" @onclick="() => OpenChat(id)">
+                            <span class="as-history-title">@chat.Title</span>
+                            <span class="as-history-meta">@When(chat.Updated)</span>
+                        </button>
+                        <MudTooltip Text="Delete"><MudIconButton Icon="@Icons.Material.Outlined.DeleteOutline" Color="Color.Inherit" Size="Size.Small" Class="as-history-delete" OnClick="() => Chat.Forget(id)" aria-label="Delete" /></MudTooltip>
+                    </div>
+                }
+            </div>
+        }
+        else
+        {
+            <header class="as-head">
+                <span class="as-head-icon"><MudIcon Icon="@Icons.Material.Outlined.AutoAwesome" /></span>
+                <span class="as-title">Assistant</span>
+                <MudMenu Label="@ModelLabel" EndIcon="@Icons.Material.Filled.ExpandMore" Size="Size.Small" Variant="Variant.Text" Color="Color.Inherit" Class="as-model-menu" PopoverClass="as-menu" Dense="true" AnchorOrigin="Origin.BottomLeft" TransformOrigin="Origin.TopLeft" id="as-model-menu">
+                    @foreach (var model in AssistantModels.Choices(Settings.Model))
+                    {
+                        var value = model.Value;
+                        <MudMenuItem OnClick="() => Settings.Model = value">
+                            <span class="@(model.Value == (Settings.Model ?? "") ? "as-model-on" : "")">@model.Label</span>
+                        </MudMenuItem>
+                    }
+                </MudMenu>
+                <span class="as-gap"></span>
+                <MudTooltip Text="History"><MudIconButton Icon="@Icons.Material.Outlined.History" Color="Color.Inherit" Size="Size.Small" OnClick="() => Show(View.History)" id="as-history-btn" aria-label="History" /></MudTooltip>
+                <MudTooltip Text="New chat"><MudIconButton Icon="@Icons.Material.Outlined.AddComment" Color="Color.Inherit" Size="Size.Small" OnClick="Reset" Disabled="@(Chat.Items.Count == 0)" id="as-new" aria-label="New chat" /></MudTooltip>
+                <MudTooltip Text="Settings"><MudIconButton Icon="@Icons.Material.Outlined.Settings" Color="Color.Inherit" Size="Size.Small" OnClick="OpenSettingsAsync" id="as-settings" aria-label="Settings" /></MudTooltip>
+                <MudTooltip Text="Close"><MudIconButton Icon="@Icons.Material.Outlined.Close" Color="Color.Inherit" Size="Size.Small" OnClick="Close" id="as-close-panel" aria-label="Close" /></MudTooltip>
+            </header>
+            <div class="as-bar">
+                @if (Chat.Running || !_ready)
+                {
+                    <MudProgressLinear Indeterminate="true" Color="Color.Primary" Class="as-progress" aria-label="Working" id="as-progress" />
+                }
+            </div>
+
+            @if (!_ready)
+            {
+                <div class="as-loading" id="as-loading" aria-busy="true">
+                    <MudSkeleton Width="40%" />
+                    <MudSkeleton Width="85%" Height="14px" />
+                    <MudSkeleton Width="70%" Height="14px" />
+                </div>
+            }
+            else if (Chat.ClaudePath is null)
+            {
+                <div class="as-missing" id="as-missing">
+                    <div class="as-missing-title">Claude Code was not found</div>
+                    <div class="as-missing-sub">The assistant runs the Claude Code on this machine. Install it and sign in once with <code>claude</code> in a terminal</div>
+                    <div class="as-missing-actions">
+                        <MudButton Size="Size.Small" Variant="Variant.Outlined" Href="https://docs.claude.com/en/docs/claude-code/setup" Target="_blank">Install Guide</MudButton>
+                        <MudButton Size="Size.Small" Variant="Variant.Filled" Color="Color.Primary" OnClick="OpenSettingsAsync">Set Path</MudButton>
+                    </div>
+                </div>
+            }
+            else
+            {
+                <div class="as-messages" id="as-messages">
+                    @if (Chat.Items.Count == 0)
+                    {
+                        <div class="as-empty" id="as-empty">
+                            <img class="as-empty-logo" src="seneschal.png" alt="" />
+                            <div class="as-empty-title">How can I help</div>
+                            <div class="as-empty-sub">I run your projects, read your logs and use every tool in Seneschal</div>
+                            @if (_suggestions.Count > 0)
+                            {
+                                <div class="as-suggest">
+                                    @foreach (var suggestion in _suggestions)
+                                    {
+                                        var text = suggestion.Text;
+                                        <button type="button" class="as-suggestion" @onclick="() => SendAsync(text)" disabled="@(!CanSend)">
+                                            <MudIcon Icon="@suggestion.Icon" Class="as-suggestion-icon" />
+                                            <span class="as-suggestion-text">@suggestion.Text</span>
+                                            <span class="as-suggestion-tool">@suggestion.Tool</span>
+                                        </button>
+                                    }
+                                </div>
+                            }
+                        </div>
+                    }
+                    @foreach (var item in Chat.Items)
+                    {
+                        @switch (item.Kind)
+                        {
+                            case ChatKind.User:
+                                <div class="as-row as-row-user"><div class="as-user">@item.Text</div></div>
+                                break;
+                            case ChatKind.Assistant:
+                                if (item.Text.Length > 0)
+                                {
+                                    <div class="as-row as-row-claude">
+                                        <div class="as-claude">@ChatMarkup.Render(item.Text)</div>
+                                        <MudTooltip Text="Copy"><MudIconButton Icon="@Icons.Material.Outlined.ContentCopy" Color="Color.Inherit" Size="Size.Small" Class="as-copy" OnClick="() => CopyAsync(item.Text)" aria-label="Copy" /></MudTooltip>
+                                    </div>
+                                }
+                                break;
+                            case ChatKind.Tool:
+                                <details class="@($"as-tool {(item.IsError ? "as-tool-error" : "")}")" data-tool="@item.ToolName">
+                                    <summary>
+                                        @if (!item.Done)
+                                        {
+                                            <span class="as-dot"></span>
+                                        }
+                                        else
+                                        {
+                                            <MudIcon Icon="@(item.IsError ? Icons.Material.Outlined.ErrorOutline : Icons.Material.Outlined.Check)" Size="Size.Small" Class="as-tool-icon" />
+                                        }
+                                        <span class="as-tool-name">@Pretty(item.ToolName)</span>
+                                        <span class="as-tool-args">@Brief(item.Input)</span>
+                                    </summary>
+                                    @if (item.Input is not null)
+                                    {
+                                        <div class="as-tool-label">Input</div>
+                                        <pre class="as-tool-text">@item.Input</pre>
+                                    }
+                                    @if (item.Output is not null)
+                                    {
+                                        <div class="as-tool-label">Result</div>
+                                        <pre class="as-tool-text">@item.Output</pre>
+                                    }
+                                </details>
+                                break;
+                            case ChatKind.Error:
+                                <div class="as-error"><MudIcon Icon="@Icons.Material.Outlined.ErrorOutline" Size="Size.Small" /><span>@item.Text</span></div>
+                                break;
+                        }
+                    }
+                    @if (Chat.Running && Chat.Items.LastOrDefault() is not { Kind: ChatKind.Assistant } and not { Kind: ChatKind.Tool, Done: false })
+                    {
+                        <div class="as-working" id="as-thinking"><span class="as-dot"></span>Working</div>
+                    }
+                </div>
+
+                @foreach (var request in Approvals.Pending)
+                {
+                    <div class="@($"as-approval {(request.Destructive ? "as-approval-bad" : "")}")" data-approval="@request.Tool">
+                        <div class="as-approval-head">
+                            <MudIcon Icon="@(request.Destructive ? Icons.Material.Outlined.DeleteOutline : Icons.Material.Outlined.HelpOutline)" Size="Size.Small" />
+                            <span class="as-approval-title">@(request.Destructive ? "Allow this delete" : "Allow this change")</span>
+                            <span class="as-approval-tool">@Pretty(request.Tool)</span>
+                        </div>
+                        <div class="as-approval-desc">@request.Description</div>
+                        @if (request.Arguments != "{}")
+                        {
+                            <pre class="as-tool-text">@request.Arguments</pre>
+                        }
+                        <div class="as-approval-actions">
+                            <MudButton Size="Size.Small" Variant="Variant.Text" OnClick="() => Approvals.Answer(request.Id, false)" id="as-deny">Deny</MudButton>
+                            <MudButton Size="Size.Small" Variant="Variant.Filled" Color="@(request.Destructive ? Color.Error : Color.Primary)" OnClick="() => Approvals.Answer(request.Id, true)" id="as-allow">Allow</MudButton>
+                        </div>
+                    </div>
+                }
+
+                <div class="as-composer">
+                    <textarea id="as-input" class="as-input" rows="1" placeholder="Ask Seneschal anything" @bind="_draft" @bind:event="oninput" disabled="@(!CanSend && !Chat.Running)"></textarea>
+                    @if (Chat.Running)
+                    {
+                        <MudTooltip Text="Stop" Placement="Placement.Top"><MudIconButton Icon="@Icons.Material.Filled.Stop" Color="Color.Inherit" Class="sq-btn" OnClick="Chat.Stop" id="as-stop" aria-label="Stop" /></MudTooltip>
+                    }
+                    else
+                    {
+                        <MudTooltip Text="Send" Placement="Placement.Top"><MudIconButton Icon="@Icons.Material.Filled.ArrowUpward" Color="Color.Primary" Variant="Variant.Filled" Class="sq-btn" OnClick="() => SendAsync(_draft)" Disabled="@(!CanSend)" id="as-send" aria-label="Send" /></MudTooltip>
+                    }
+                </div>
+                <div class="as-hint">Enter to send, Shift+Enter for a new line</div>
+            }
+        }
+    </section>
+}
+
+@code {
+    private enum View
+    {
+        Chat,
+        History,
+    }
+
+    private sealed record Suggestion(string Text, string Icon, string Tool);
+
+    // What to try, taken from the tools that are turned on: each one offers a few requests of its own (ToolMetadata.Prompts)
+    private List<Suggestion> _suggestions = [];
+
+    private string _draft = "";
+    private bool _open;
+    private bool _ready;
+    private bool _wire;
+    private bool _framed;
+    private int _toolCount;
+    private View _view = View.Chat;
+
+    private bool CanSend => Chat.ClaudePath is not null && !Chat.Running;
+
+    private string ModelLabel => AssistantModels.Label(Settings.Model);
+
+    protected override void OnInitialized()
+    {
+        Chat.Changed += OnChanged;
+        Approvals.Changed += OnChanged;
+        Settings.Changed += OnChanged;
+        History.Changed += OnChanged;
+    }
+
+    public void Dispose()
+    {
+        Chat.Changed -= OnChanged;
+        Approvals.Changed -= OnChanged;
+        Settings.Changed -= OnChanged;
+        History.Changed -= OnChanged;
+    }
+
+    private void OnChanged() => _ = InvokeAsync(StateHasChanged);
+
+    private void OpenAsync()
+    {
+        _open = true;
+        _ready = false;
+        _framed = true;
+        _view = View.Chat;
+    }
+
+    private void Close() => _open = false;
+
+    private void Show(View view)
+    {
+        _view = view;
+        _wire = view == View.Chat;
+    }
+
+    private void OpenChat(string id)
+    {
+        Chat.Open(id);
+        Show(View.Chat);
+    }
+
+    private void OnPanelKey(KeyboardEventArgs e)
+    {
+        if (e.Key == "Escape") Close();
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!_open) return;
+        try
+        {
+            if (_framed)
+            {
+                // The frame is on screen: now do the slow part (looking for Claude, listing the tools) and fill it in
+                _framed = false;
+                await Task.Yield();
+                _toolCount = Registry.All().Count;
+                _suggestions = BuildSuggestions();
+                _ = Chat.ClaudePath;
+                _ready = true;
+                _wire = true;
+                StateHasChanged();
+            }
+            else if (_wire && _ready && _view == View.Chat)
+            {
+                _wire = false;
+                await JS.InvokeVoidAsync("seneschalComposer", "as-input", "as-send");
+                await JS.InvokeVoidAsync("seneschalScrollEnd", "as-messages", true);
+                await JS.InvokeVoidAsync("seneschalFocus", "as-input");
+            }
+            else if (_ready && _view == View.Chat)
+            {
+                await JS.InvokeVoidAsync("seneschalScrollEnd", "as-messages", false);
+            }
+        }
+        catch (JSDisconnectedException)
+        {
+            // The browser went away
+        }
+    }
+
+    /// <summary>Three from the tools, one from each in turn so they are not all about the same thing, and the one about making a new tool.</summary>
+    private List<Suggestion> BuildSuggestions()
+    {
+        var tools = Tools.All.Where(t => t.Prompts.Count > 0).ToList();
+        var list = new List<Suggestion>();
+        for (var round = 0; round < 3 && list.Count < 3; round++)
+            foreach (var tool in tools.Where(t => round < t.Prompts.Count))
+                if (list.Count < 3) list.Add(new Suggestion(tool.Prompts[round], tool.Icon, tool.Title));
+        list.Add(new Suggestion("Help me create a new extension", Icons.Material.Outlined.Extension, "Seneschal"));
+        return list;
+    }
+
+    private async Task SendAsync(string text)
+    {
+        if (!CanSend || string.IsNullOrWhiteSpace(text)) return;
+        _draft = "";
+        try { await JS.InvokeVoidAsync("seneschalFitInput", "as-input"); } catch (JSDisconnectedException) { }
+        await Chat.SendAsync(text);
+    }
+
+    private void Reset() => Chat.Reset();
+
+    private async Task CopyAsync(string text)
+    {
+        try
+        {
+            await JS.InvokeVoidAsync("navigator.clipboard.writeText", text);
+            Snackbar.Add("Copied", Severity.Success);
+        }
+        catch (JSException)
+        {
+            Snackbar.Add("Could not copy", Severity.Error);
+        }
+    }
+
+    private Task OpenSettingsAsync() =>
+        Dialogs.ShowAsync<AssistantSettingsDialog>("Assistant Settings", new DialogOptions { MaxWidth = MaxWidth.Small, FullWidth = true, CloseOnEscapeKey = true });
+
+    /// <summary>"projects_start" is shown as "Projects Start".</summary>
+    private static string Pretty(string? name) =>
+        string.Join(' ', (name ?? "").Split('_', StringSplitOptions.RemoveEmptyEntries).Select(w => char.ToUpperInvariant(w[0]) + w[1..]));
+
+    /// <summary>The arguments of a call on one line, so a collapsed tool still says what it did.</summary>
+    private static string Brief(string? input)
+    {
+        if (string.IsNullOrWhiteSpace(input) || input.Trim() == "{}") return "";
+        try
+        {
+            var values = System.Text.Json.Nodes.JsonNode.Parse(input) as System.Text.Json.Nodes.JsonObject;
+            return string.Join("  ", values?.Select(p => $"{p.Key}: {p.Value?.ToString().Trim('"')}") ?? []);
+        }
+        catch (System.Text.Json.JsonException)
+        {
+            return "";
+        }
+    }
+
+    /// <summary>When a chat was last used, in a few words.</summary>
+    private static string When(DateTimeOffset time)
+    {
+        var age = DateTimeOffset.Now - time;
+        if (age < TimeSpan.FromMinutes(1)) return "Just now";
+        if (age < TimeSpan.FromHours(1)) return $"{(int)age.TotalMinutes} min ago";
+        if (time.Date == DateTimeOffset.Now.Date) return $"{(int)age.TotalHours} h ago";
+        if (time.Date == DateTimeOffset.Now.Date.AddDays(-1)) return "Yesterday";
+        return time.ToString("d MMM", System.Globalization.CultureInfo.InvariantCulture);
+    }
+}

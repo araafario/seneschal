@@ -1,0 +1,69 @@
+@inject IToolRegistry Registry
+@inject NavigationManager Nav
+
+<div class="drawer-search">
+    @if (Expanded)
+    {
+        <MudAutocomplete @ref="_box" T="ToolMetadata" Class="tool-search" PopoverClass="tool-search-pop"
+                         Value="null" ValueChanged="OpenTool"
+                         SearchFunc="Search" ToStringFunc="t => t?.Title"
+                         Placeholder="Search tools"
+                         Variant="Variant.Outlined" Margin="Margin.Dense" Adornment="Adornment.End"
+                         AdornmentIcon="@Icons.Material.Outlined.Search" OpenOnFocus="true"
+                         ResetValueOnEmptyText="true" MaxItems="12" SelectOnActivation="false">
+            <ItemTemplate Context="tool">
+                <div class="d-flex align-center" style="gap: 12px;">
+                    <MudIcon Icon="@tool.Icon" Size="Size.Small" />
+                    <MudText Typo="Typo.body2">@tool.Title</MudText>
+                </div>
+            </ItemTemplate>
+            <NoItemsTemplate>
+                <MudText Typo="Typo.body2" Class="pa-2">No tools found</MudText>
+            </NoItemsTemplate>
+        </MudAutocomplete>
+    }
+    else
+    {
+        <MudTooltip Text="Search tools" Placement="Placement.Right">
+            <MudIconButton Icon="@Icons.Material.Outlined.Search" Class="sq-btn" Color="Color.Inherit"
+                           OnClick="RequestSearch" />
+        </MudTooltip>
+    }
+</div>
+
+@code {
+    private MudAutocomplete<ToolMetadata>? _box;
+    private bool _focusAfterRender;
+
+    [Parameter] public bool Expanded { get; set; } = true;
+
+    /// <summary>Raised when the minimized search icon is clicked; the layout expands the sidebar.</summary>
+    [Parameter] public EventCallback OnExpandRequested { get; set; }
+
+    private Task<IEnumerable<ToolMetadata>> Search(string? text, CancellationToken _) =>
+        Task.FromResult<IEnumerable<ToolMetadata>>(Registry.Search(text ?? ""));
+
+    private async Task OpenTool(ToolMetadata? tool)
+    {
+        if (tool is null) return;
+
+        Nav.NavigateTo($"/tools/{tool.Id}");
+        if (_box is not null)
+            await _box.ClearAsync();
+    }
+
+    private async Task RequestSearch()
+    {
+        _focusAfterRender = true;
+        await OnExpandRequested.InvokeAsync();
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (_focusAfterRender && _box is not null)
+        {
+            _focusAfterRender = false;
+            await _box.FocusAsync();
+        }
+    }
+}

@@ -1,0 +1,42 @@
+@implements IDisposable
+@inject Seneschal.Updates.UpdateState Updates
+@inject Seneschal.Dev.Restarter Restarter
+
+@* A new version, shown above every page. Minor updates install themselves at the next restart; a new major version waits to be asked for *@
+@if (Updates.Major is { } major)
+{
+    <div class="update-notice">
+        <Banner Tone="Banner.BannerTone.Warning" Title="Major Update Available" Detail="@($"Version {major.Text} can break things. Run seneschal update in a terminal to install it")" id="update-major">
+            <Actions>
+                <MudButton Size="Size.Small" Variant="Variant.Outlined" Href="@major.PageUrl" Target="_blank">Release Notes</MudButton>
+            </Actions>
+        </Banner>
+    </div>
+}
+else if (Updates.StagedVersion is { } staged)
+{
+    <div class="update-notice">
+        <Banner Tone="Banner.BannerTone.Info" Title="@($"Update {staged} is ready")" Detail="It installs when Seneschal restarts" id="update-ready">
+            <Actions>
+                @if (Restarter.Available)
+                {
+                    <MudButton Size="Size.Small" Variant="Variant.Outlined" OnClick="Restarter.Restart" id="update-restart">Restart App</MudButton>
+                }
+            </Actions>
+        </Banner>
+    </div>
+}
+else if (Updates.Available is { } available)
+{
+    <div class="update-notice">
+        <Banner Tone="Banner.BannerTone.Info" Title="@($"Update {available.Text} available")" Detail="Run seneschal update in a terminal to install it" id="update-available" />
+    </div>
+}
+
+@code {
+    protected override void OnInitialized() => Updates.Changed += OnChanged;
+
+    public void Dispose() => Updates.Changed -= OnChanged;
+
+    private void OnChanged() => _ = InvokeAsync(StateHasChanged);
+}

@@ -1,0 +1,47 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- What an extension compiles against, and nothing else from the app. Keep it small: everything here is a promise
+       to every extension author. The host loads it once, so every extension sees the same types. -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>Seneschal.Sdk</RootNamespace>
+    <!-- Major = breaking change. Minor = something was added; an extension built against 1.2 needs a host that has 1.2. -->
+    <Version>1.2.0</Version>
+  </PropertyGroup>
+
+  <!-- The NuGet package, which is how an extension outside this repository gets the SDK and its build rules -->
+  <PropertyGroup>
+    <PackageId>Seneschal.Sdk</PackageId>
+    <Title>Seneschal SDK</Title>
+    <Authors>araafario</Authors>
+    <Description>Build tools for Seneschal, the local developer toolbelt. Gives an extension its types (IToolModule, ToolMetadata, IToolMcp) and the build rules that stage it and pack it as a .snx file to import in the Extension Manager.</Description>
+    <PackageTags>seneschal;extension;blazor;mudblazor;mcp</PackageTags>
+    <PackageProjectUrl>https://github.com/araafario/seneschal</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/araafario/seneschal</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageIcon>icon.png</PackageIcon>
+    <IncludeSymbols>true</IncludeSymbols>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+    <PublishRepositoryUrl>true</PublishRepositoryUrl>
+    <EmbedUntrackedSources>true</EmbedUntrackedSources>
+    <!-- The pipeline sets this, so the package is the same wherever it is built -->
+    <ContinuousIntegrationBuild Condition="'$(GITHUB_ACTIONS)' == 'true'">true</ContinuousIntegrationBuild>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Brings in IServiceCollection / IServiceProvider for the lifecycle hook -->
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="README.md" Pack="true" PackagePath="\" />
+    <None Include="..\..\assets\branding\seneschal.png" Pack="true" PackagePath="icon.png" Link="icon.png" />
+    <!-- NuGet imports build/<PackageId>.targets into every project that references the package, which is what makes
+         "dotnet build" stage and pack an extension. In this repository the same file is imported directly, under its own name. -->
+    <None Include="build\Seneschal.Extension.targets" Pack="true" PackagePath="build\Seneschal.Sdk.targets" />
+  </ItemGroup>
+
+</Project>

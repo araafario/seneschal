@@ -1,0 +1,275 @@
+@page "/extensions/tutorial"
+@using Seneschal.Dev
+@inject DevMode Dev
+
+<PageShell Title="Create an Extension" Icon="@Icons.Material.Outlined.School">
+<div class="tutorial">
+    <MudText Class="mb-4">
+        An extension is a class library that adds one or more tools to Seneschal
+        It is built against the small <code>Seneschal.Sdk</code> and shared as a single <code>.snx</code> file
+    </MudText>
+
+    <MudText Typo="Typo.h6" Class="mb-3">Quick start</MudText>
+    @if (Dev.Enabled)
+    {
+        <ol class="qs-steps">
+            <li>
+                <b>Open the <MudLink Href="/developer">Developer</MudLink> page</b>
+                <span>Press <b>New Extension</b></span>
+            </li>
+            <li>
+                <b>Give it a name</b>
+                <span>For example <code>RegexTester</code> and press <b>Create</b></span>
+            </li>
+            <li>
+                <b>Find your tool in the sidebar</b>
+                <span>It is built and loaded for you</span>
+            </li>
+            <li>
+                <b>Make it yours</b>
+                <span>Edit the files in <code>extensions/RegexTester</code> and press <b>Build</b> on the Developer page</span>
+            </li>
+        </ol>
+        <MudText Typo="Typo.caption" Class="qs-note">New extensions include an example service so they need an app restart once and the page offers a button for it</MudText>
+    }
+    else
+    {
+        <ol class="qs-steps">
+            <li>
+                <b>Create a Razor class library</b>
+                <span>Add the <code>Seneschal.Sdk</code> package</span>
+            </li>
+            <li>
+                <b>Add a manifest and a tool</b>
+                <span>See Manifest and Tool in the reference below</span>
+            </li>
+            <li>
+                <b>Build it</b>
+                <span>Run <code>dotnet build</code> to get the <code>.snx</code> package</span>
+            </li>
+            <li>
+                <b>Import the package</b>
+                <span>Use <b>Import</b> in the <MudLink Href="/extensions">Extension Manager</MudLink></span>
+            </li>
+        </ol>
+    }
+
+    <div class="group-divider"></div>
+
+    <MudText Typo="Typo.h6" Class="mb-3">Reference</MudText>
+    <MudExpansionPanels MultiExpansion="true" Class="tutorial-panels" Elevation="0">
+
+        <MudExpansionPanel Text="Project">
+            <MudText Class="mb-2">
+                A Razor class library with a reference to the SDK
+                In this repository it lives in <code>extensions/&lt;Name&gt;</code> and the shared build settings come from <code>extensions/Directory.Build.props</code>
+                so the project file stays tiny
+                In your own repository add the <code>Seneschal.Sdk</code> package and its build rules
+            </MudText>
+            <pre class="tutorial-code">@ProjectSnippet</pre>
+            <pre class="tutorial-code">@FolderSnippet</pre>
+        </MudExpansionPanel>
+
+        <MudExpansionPanel Text="Manifest">
+            <MudText Class="mb-2">
+                <code>extension.json</code> says what the extension is and the app reads it without loading any code
+                <code>sdk</code> is the SDK version it was built against
+                The app accepts the same major version and anything not newer than its own
+            </MudText>
+            <pre class="tutorial-code">@ManifestSnippet</pre>
+        </MudExpansionPanel>
+
+        <MudExpansionPanel Text="Tool">
+            <MudText Class="mb-2">
+                One small class per tool and the app finds it on its own
+                <b>Group</b> is optional and an empty one is listed under <i>Other</i>
+                An extension can hold several tools and each gets its own sidebar entry and on/off switch
+            </MudText>
+            <pre class="tutorial-code">@ToolSnippet</pre>
+            <MudText Class="mt-2">
+                <b>Persistent</b> is off by default so the tool starts fresh each time it opens
+                Turn it on to keep the view alive while you visit other pages
+                The state stays in memory and is lost on restart or when the tool is turned off or updated
+            </MudText>
+        </MudExpansionPanel>
+
+        <MudExpansionPanel Text="View and styles">
+            <MudText Class="mb-2">
+                The view is an ordinary Blazor component using MudBlazor
+                The app already draws the page title and the <b>Add to favorites</b> button so the view holds only the tool's own content
+            </MudText>
+            <MudText Class="mb-2">
+                Static files go in <code>wwwroot</code> and stylesheets listed under <code>styles</code> in the manifest load on every page
+                Use the theme variables so the tool follows light and dark mode
+            </MudText>
+            <pre class="tutorial-code">--fg  --fg-dim  --border  --hover  --accent  --card  --card-border  --tile  --field</pre>
+            <MudText>Give your own class names a specific prefix such as <code>rt-</code> so they never collide with other extensions</MudText>
+        </MudExpansionPanel>
+
+        <MudExpansionPanel Text="Services and startup work">
+            <MudText Class="mb-2">
+                A tool that needs its own services or background work implements <code>IToolLifecycle</code> next to <code>IToolModule</code>
+                <code>ConfigureServices</code> registers services and <code>Started</code> runs once after the app has started
+                The context gives the extension id and a private <code>DataDirectory</code> for its files
+            </MudText>
+            <MudText Class="mb-2">
+                Services belong to the app container which is built once at startup
+                An extension that registers any is activated updated and removed by a restart
+                One that registers none loads updates and unloads live
+            </MudText>
+            <pre class="tutorial-code">@LifecycleSnippet</pre>
+        </MudExpansionPanel>
+
+        <MudExpansionPanel Text="Let the AI use it">
+            <MudText Class="mb-2">
+                Everything the page lets the user do should also be a tool for the assistant in the corner of the app
+                Implement <code>IToolMcp</code> next to <code>IToolModule</code> and list one tool for each thing the user can do: list, create, delete, run
+                The app offers them to Claude through MCP while the tool is turned on and no restart is needed
+            </MudText>
+            <MudText Class="mb-2">
+                The effect decides how the assistant treats a call
+                <b>Read</b> only looks
+                <b>Change</b> is easy to undo
+                <b>Destructive</b> removes something and always asks the user first
+            </MudText>
+            <pre class="tutorial-code">@McpSnippet</pre>
+            <MudText Class="mt-2">
+                Throw <code>McpException</code> with a message the AI can act on and keep names short and unique such as <code>regex_tester_test</code>
+            </MudText>
+        </MudExpansionPanel>
+        <MudExpansionPanel Text="NuGet packages">
+            <MudText Class="mb-2">
+                Add a <code>PackageReference</code> as usual
+                The build copies the libraries your extension needs into the package and leaves out what the app already provides (the SDK and MudBlazor)
+            </MudText>
+            <MudText>
+                Two extensions using the same library each carry their own copy so they cannot disturb each other
+                Packages with native files (<code>runtimes</code>) are included but cannot be unloaded so removing or updating them may need a restart
+            </MudText>
+        </MudExpansionPanel>
+
+        <MudExpansionPanel Text="Build and share">
+            <MudText Class="mb-2"><code>dotnet build</code> stages the extension as a folder and as a package</MudText>
+            <pre class="tutorial-code">@BuildSnippet</pre>
+            <MudText Class="mt-2">
+                In this repository <code>dev.ps1</code> starts the app with the staged folders loaded as <b>Dev</b> extensions
+                To use an extension somewhere else import its <code>.snx</code> in the Extension Manager
+                A <code>.zip</code> of the same files and a single <code>.dll</code> without a manifest are accepted too
+            </MudText>
+        </MudExpansionPanel>
+
+        <MudExpansionPanel Text="Rules">
+            <ul class="tutorial-list">
+                <li>Depend on <code>Seneschal.Sdk</code> MudBlazor and your own packages</li>
+                <li>Components inside the app such as the tool card and page frame are not available to extensions</li>
+                <li>A tool <code>Id</code> must be unique and a clash with another extension is rejected</li>
+                <li>An extension built for another major SDK version is rejected with a message that says so</li>
+                <li>A package runs with full access to the machine so import only packages you trust</li>
+            </ul>
+        </MudExpansionPanel>
+
+        @if (Dev.Enabled)
+        {
+            <MudExpansionPanel Text="The Developer page">
+                <MudText Class="mb-2">Working in this repository the <MudLink Href="/developer">Developer</MudLink> page does the chores for you</MudText>
+                <ul class="tutorial-list">
+                    <li><b>New Extension</b> makes a complete project in <code>extensions/&lt;Name&gt;</code> and adds it to <code>Seneschal.slnx</code></li>
+                    <li><b>Build</b> runs <code>dotnet build</code> shows compiler errors and loads the result into the running app live or after a restart for extensions with services</li>
+                    <li><b>Delete</b> asks first then moves the project to <code>.deleted/extensions</code> so you can move it back</li>
+                    <li>The menu opens the folder in VS Code or the solution in Visual Studio and shows the <code>.snx</code> package</li>
+                </ul>
+            </MudExpansionPanel>
+        }
+    </MudExpansionPanels>
+</div>
+</PageShell>
+
+@code {
+    private const string ProjectSnippet = """
+        <Project Sdk="Microsoft.NET.Sdk.Razor">
+          <PropertyGroup>
+            <RootNamespace>RegexTester</RootNamespace>
+            <ExtensionId>regex-tester</ExtensionId>
+          </PropertyGroup>
+        </Project>
+        """;
+
+    private const string FolderSnippet = """
+        extensions/RegexTester/
+          RegexTester.csproj
+          extension.json          the manifest
+          RegexTesterTool.cs      the tool: id, title, group, icon
+          RegexTesterView.razor   the UI (content only)
+          RegexTesterEngine.cs    the code that does the work (no UI, easy to test)
+          wwwroot/regextester.css optional static files
+        """;
+
+    private const string ManifestSnippet = """
+        {
+          "id": "regex-tester",
+          "name": "Regex Tester",
+          "version": "1.0.0",
+          "description": "Try regular expressions against sample text",
+          "entry": "RegexTester.dll",
+          "sdk": "1.0",
+          "styles": [ "regextester.css" ]
+        }
+        """;
+
+    private const string ToolSnippet = """
+        public sealed class RegexTesterTool : IToolModule
+        {
+            public ToolMetadata Metadata { get; } = new(
+                Id: "regex-tester",
+                Title: "Regex Tester",
+                Description: "Try regular expressions against sample text",
+                Group: "Text",                // optional: empty means "Other"
+                Icon: Icons.Material.Filled.Spellcheck,
+                ComponentType: typeof(RegexTesterView),
+                SearchTerms: ["regex", "pattern", "match"])
+            {
+                Persistent = true,            // optional: keep the tool's state while you visit other pages
+            };
+        }
+        """;
+
+    private const string LifecycleSnippet = """
+        public sealed class RegexTesterTool : IToolModule, IToolLifecycle
+        {
+            // ... Metadata as above ...
+
+            public void ConfigureServices(IServiceCollection services, IExtensionContext context)
+            {
+                services.AddSingleton(new RegexTesterStore(context.DataDirectory));
+            }
+
+            public void Started(IServiceProvider services, IExtensionContext context)
+            {
+                // runs once, after the app has started
+            }
+        }
+        """;
+
+    private const string McpSnippet = """
+        public sealed class RegexTesterTool : IToolModule, IToolMcp
+        {
+            // ... Metadata as above ...
+
+            public IEnumerable<McpTool> McpTools(IServiceProvider services)
+            {
+                yield return new McpTool("regex_tester_test", "Test a pattern against some text",
+                    McpEffect.Read,
+                    McpSchema.Object()
+                        .Text("pattern", "The regular expression", required: true)
+                        .Text("text", "The text to test", required: true),
+                    args => Regex.IsMatch(args.Text("text"), args.Text("pattern")));
+            }
+        }
+        """;
+    private const string BuildSnippet = """
+        dotnet build extensions/RegexTester
+
+        artifacts/extensions/regex-tester/     the folder the app loads (dev builds)
+        artifacts/packages/regex-tester.snx    the package to import elsewhere
+        """;
+}

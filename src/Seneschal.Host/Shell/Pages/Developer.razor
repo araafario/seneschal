@@ -1,0 +1,211 @@
+@page "/developer"
+@using Seneschal.Dev
+@implements IDisposable
+@inject DevMode Dev
+@inject Workspace Work
+@inject DllExtensions Extensions
+@inject Restarter Restarter
+@inject IDialogService Dialogs
+@inject ISnackbar Snackbar
+
+<PageShell Title="Developer" Icon="@Icons.Material.Outlined.Code">
+    <ChildContent>
+
+    @if (!Dev.Enabled)
+    {
+        <Banner Tone="Banner.BannerTone.Info" Title="Not available here" Detail="Run Seneschal from the repository in the Development environment" id="dev-unavailable" />
+    }
+    else
+    {
+        @if (_notes is { Count: > 0 })
+        {
+            <Banner Tone="Banner.BannerTone.Warning" Title="@_notes[0]" Detail="@(_notes.Count > 1 ? string.Join("\n", _notes.Skip(1)) : null)" OnDismiss="() => _notes = null" id="dev-notes" />
+        }
+        @if (Extensions.RestartPending)
+        {
+            <Banner Tone="Banner.BannerTone.Warning" Title="@($"Restart to use {string.Join(", ", Extensions.PendingRestart)}")"
+                    Detail="@(Restarter.Available ? null : "Start the app with dev.ps1 to get a restart button")" id="dev-rebuild">
+                <Actions>
+                    @if (Restarter.Available)
+                    {
+                        <MudButton Size="Size.Small" Variant="Variant.Outlined" OnClick="Restart" id="restart-app">Restart App</MudButton>
+                    }
+                </Actions>
+            </Banner>
+        }
+
+        <div class="list-head">
+            <MudText Typo="Typo.h6">Extensions in this repository</MudText>
+            <div class="list-head-actions">
+                <MudButton Variant="Variant.Outlined" StartIcon="@Icons.Material.Outlined.OpenInNew" OnClick="OpenSolution" id="open-solution">Open Solution</MudButton>
+                <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="NewExtensionAsync" id="new-extension">New Extension</MudButton>
+            </div>
+        </div>
+        var projects = Work.List();
+        @if (projects.Count == 0)
+        {
+            <div class="run-empty" id="no-sources">No extensions yet</div>
+        }
+        @foreach (var ext in projects)
+        {
+            var loaded = Extensions.Loaded.FirstOrDefault(e => e.Name.Equals(ext.Id, StringComparison.OrdinalIgnoreCase));
+            var building = _building == ext.Name;
+            <div class="ext-row" data-source="@ext.Name" data-build="@ext.Build">
+                <MudIcon Icon="@Icons.Material.Outlined.Extension" />
+                <div class="ext-text">
+                    <MudText Typo="Typo.subtitle2" Class="tool-title">@ext.Title <span class="run-badge">@ext.Id</span>@if (ext.Shipped) { <span class="run-badge">ships with the app</span> }</MudText>
+                    <MudText Typo="Typo.body2" Class="tool-desc">
+                        extensions/@ext.Name
+                        @if (ext.Problem is not null) { <span> · @ext.Problem</span> }
+                        else
+                        {
+                            <span> · v@(ext.Version) · @BuildText(ext) · @LoadedText(ext, loaded)</span>
+                        }
+                    </MudText>
+                </div>
+                <MudButton Size="Size.Small" Variant="Variant.Outlined" StartIcon="@(building ? null : Icons.Material.Outlined.Build)" Class="dev-build"
+                           Disabled="@(_building is not null || ext.Problem is not null)" OnClick="() => BuildAsync(ext.Name)">
+                    @if (building)
+                    {
+                        <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="build-spinner" />
+                    }
+                    @(building ? "Building" : "Build")
+                </MudButton>
+                <MudMenu Icon="@Icons.Material.Outlined.MoreVert" Class="sq-btn ext-more" AriaLabel="More actions" Dense="true">
+                    <MudMenuItem OnClick="() => OpenFolder(ext.Name)">Open folder in VS Code</MudMenuItem>
+                    <MudMenuItem OnClick="OpenSolution">Open solution in Visual Studio</MudMenuItem>
+                    @if (ext.PackagePath is not null)
+                    {
+                        <MudMenuItem OnClick="() => Reveal(ext.Name)">Show the package (.snx)</MudMenuItem>
+                    }
+                </MudMenu>
+                <MudTooltip Text="@(ext.Shipped ? "Delete (built-in, needs confirmation)" : "Delete")">
+                    <MudIconButton Icon="@Icons.Material.Outlined.Delete" Class="sq-btn dev-delete" Color="Color.Inherit"
+                                   Disabled="@(_building is not null)" OnClick="() => DeleteAsync(ext)" />
+                </MudTooltip>
+            </div>
+        }
+
+        <div class="group-divider ext-footer-divider"></div>
+        <MudLink Href="/extensions/tutorial" Underline="Underline.Hover" Color="Color.Inherit" Class="ext-footer">
+            Create an extension <MudIcon Icon="@Icons.Material.Outlined.ArrowForward" Size="Size.Small" />
+        </MudLink>
+    }
+    </ChildContent>
+</PageShell>
+
+@code {
+    private string? _building;
+
+    /// <summary>Warnings the user should see after an action (something that could not be done). Success is never announced.</summary>
+    private List<string>? _notes;
+
+    protected override void OnInitialized() => Extensions.Changed += OnChanged;
+
+    public void Dispose() => Extensions.Changed -= OnChanged;
+
+    private void OnChanged() => _ = InvokeAsync(StateHasChanged);
+
+    private static string BuildText(WorkspaceExtension ext) => ext.Build switch
+    {
+        BuildState.UpToDate => $"built {ext.BuiltAt:HH:mm}",
+        BuildState.Changed => "changed since the last build",
+        _ => "not built",
+    };
+
+    private string LoadedText(WorkspaceExtension ext, DllExtension? loaded)
+    {
+        if (Extensions.RestartPending && Extensions.PendingRestart.Contains(ext.Id, StringComparer.OrdinalIgnoreCase))
+            return "waiting for a restart";
+        return loaded?.Origin switch
+        {
+            ExtensionSource.Dev => "loaded (dev build)",
+            ExtensionSource.Bundled => "loaded (the copy that ships with the app)",
+            null => "not loaded: press Build",
+            _ => "loaded",
+        };
+    }
+
+    private async Task NewExtensionAsync()
+    {
+        var dialog = await Dialogs.ShowAsync<NewExtensionDialog>("Create New Extension",
+            new DialogOptions { MaxWidth = MaxWidth.Small, FullWidth = true, CloseButton = true });
+        var result = await dialog.Result;
+        if (result is not { Canceled: false, Data: CreatedExtension created }) return;
+
+        if (!created.Result.Ok) { Fail(created.Result.Message); return; }
+
+        // The new row is the answer. Only a warning is worth a message
+        if (created.Result.Notes is { Count: > 0 } notes) _notes = [.. notes];
+        if (created.BuildNow) await BuildAsync(created.Name, created: true);
+    }
+
+    /// <summary>A spinner on the button while it builds, then a toast: short for success, kept until dismissed for a failure.</summary>
+    private async Task BuildAsync(string name, bool created = false)
+    {
+        _building = name;
+        StateHasChanged();
+        try
+        {
+            var result = await Work.BuildAsync(name);
+            if (!result.Ok)
+            {
+                Fail(result.Message);
+                return;
+            }
+
+            var built = result.Message.Split('\n')[0];
+            Snackbar.Add(created ? $"Created {name} and {char.ToLowerInvariant(built[0])}{built[1..]}" : built, Severity.Success);
+        }
+        catch (Exception ex)
+        {
+            Fail(ex.Message);
+        }
+        finally
+        {
+            _building = null;
+        }
+    }
+
+    private async Task DeleteAsync(WorkspaceExtension ext)
+    {
+        var dialog = await Dialogs.ShowAsync<DeleteExtensionDialog>("Delete Extension",
+            new DialogParameters<DeleteExtensionDialog> { { x => x.Extension, ext } },
+            new DialogOptions { MaxWidth = MaxWidth.Small, FullWidth = true, CloseButton = true });
+        var result = await dialog.Result;
+        if (result is not { Canceled: false }) return;
+
+        try
+        {
+            var deleted = Work.Delete(ext.Name, includeBuiltIn: ext.Shipped);
+            if (!deleted.Ok) Fail(deleted.Message);
+            else if (deleted.Notes is { Count: > 0 } notes) _notes = [.. notes];
+        }
+        catch (Exception ex)
+        {
+            Fail(ex.Message);
+        }
+    }
+
+    private void OpenFolder(string name) => Safe(() => Work.OpenFolder(name));
+
+    private void OpenSolution() => Safe(Work.OpenSolution);
+
+    private void Reveal(string name) => Safe(() => Work.RevealPackage(name));
+
+    private void Restart() => Safe(Restarter.Restart);
+
+    private void Safe(Action action)
+    {
+        try { action(); }
+        catch (Exception ex) { Fail(ex.Message); }
+    }
+
+    /// <summary>An error toast. It stays until it is dismissed, so there is time to read it.</summary>
+    private void Fail(string message)
+    {
+        var lines = message.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).Take(8);
+        var html = string.Join("<br />", lines.Select(System.Net.WebUtility.HtmlEncode));
+        Snackbar.Add(new MarkupString(html), Severity.Error, options => options.RequireInteraction = true);
+    }
+}

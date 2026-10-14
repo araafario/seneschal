@@ -1,0 +1,26 @@
+@page "/Error"
+@using System.Diagnostics
+
+<PageTitle>Error</PageTitle>
+
+<h1 class="text-danger">Something went wrong</h1>
+
+@if (ShowRequestId)
+{
+    <p>
+        <strong>Request ID</strong> <code>@RequestId</code>
+    </p>
+}
+
+<p>Set <code>ASPNETCORE_ENVIRONMENT</code> to <code>Development</code> and restart to see the details</p>
+
+@code{
+    [CascadingParameter]
+    private HttpContext? HttpContext { get; set; }
+
+    private string? RequestId { get; set; }
+    private bool ShowRequestId => !string.IsNullOrEmpty(RequestId);
+
+    protected override void OnInitialized() =>
+        RequestId = Activity.Current?.Id ?? HttpContext?.TraceIdentifier;
+}

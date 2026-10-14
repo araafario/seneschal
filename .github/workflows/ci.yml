@@ -1,0 +1,23 @@
+name: CI
+
+# Checks that everything builds. It publishes nothing: a release is made by hand with the Release workflow.
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Build
+        run: dotnet build Seneschal.slnx -c Release
+
+      - name: Pack the SDK
+        run: dotnet pack src/Seneschal.Sdk -c Release -o sdk-package

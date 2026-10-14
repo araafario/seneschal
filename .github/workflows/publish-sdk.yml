@@ -1,0 +1,79 @@
+name: Publish SDK
+
+# Run by hand: Actions, Publish SDK, Run workflow. Packs Seneschal.Sdk and pushes it to nuget.org.
+#
+# It uses nuget.org trusted publishing, so there is no API key to store or rotate: the workflow proves who it is to GitHub, nuget.org
+# trusts that proof for this repository and this file name, and hands back a key that lasts a few minutes. For that to work:
+#   1. On nuget.org, open your profile, Trusted Publishing, and add a policy for this repository
+#      (repository owner and name as on GitHub, workflow file: publish-sdk.yml, no environment).
+#   2. In this repository add a secret NUGET_USER with your nuget.org user name (the profile name, not the email address).
+# A version can only be pushed once. Change <Version> in src/Seneschal.Sdk/Seneschal.Sdk.csproj, or type one below.
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Package version such as 1.2.0 or 1.2.0-beta.1. Leave empty for the version in Seneschal.Sdk.csproj
+        required: false
+        type: string
+      publish:
+        description: Push to nuget.org. Untick to only build the package and keep it as a download of this run
+        required: false
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+  id-token: write   # lets the workflow prove its identity to nuget.org
+
+concurrency:
+  group: publish-sdk
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Pack
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          version="${VERSION#v}"
+          args=()
+          if [ -n "$version" ]; then
+            if ! [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]]; then echo "'$version' is not a version such as 1.2.0"; exit 1; fi
+            args+=("-p:Version=$version")
+          fi
+          dotnet pack src/Seneschal.Sdk -c Release -o out "${args[@]}"
+          ls -l out
+
+      - name: Check the package
+        run: |
+          package=$(ls out/*.nupkg)
+          echo "$package"
+          # Without its build rules an extension cannot be staged or packed, which is the point of the package
+          unzip -l "$package" | grep -q 'build/Seneschal.Sdk.targets' || { echo "The build rules are missing from the package"; exit 1; }
+          unzip -l "$package" | grep -q 'lib/net10.0/Seneschal.Sdk.dll' || { echo "The assembly is missing from the package"; exit 1; }
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: seneschal-sdk-package
+          path: out/*
+
+      - name: Log in to nuget.org
+        if: ${{ inputs.publish }}
+        id: login
+        uses: NuGet/login@v1
+        with:
+          user: ${{ secrets.NUGET_USER }}
+
+      - name: Push to nuget.org
+        if: ${{ inputs.publish }}
+        run: |
+          # --skip-duplicate: running it again for a version that is already there is not an error. The symbols package goes with it
+          dotnet nuget push "out/*.nupkg" --api-key "${{ steps.login.outputs.NUGET_API_KEY }}" --source https://api.nuget.org/v3/index.json --skip-duplicate

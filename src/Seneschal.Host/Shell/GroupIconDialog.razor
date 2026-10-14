@@ -1,0 +1,38 @@
+@inject GroupIcons GroupIconService
+
+<MudDialog>
+    <TitleContent>
+        <MudText Typo="Typo.h6">Icon for @Group</MudText>
+    </TitleContent>
+    <DialogContent>
+        <IconPicker Value="@_current" ValueChanged="Pick" />
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Reset" Disabled="!GroupIconService.IsCustom(Group)">Reset to default</MudButton>
+        <MudButton OnClick="Close">Close</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = default!;
+
+    [Parameter, EditorRequired] public string Group { get; set; } = "";
+
+    private string _current = "";
+
+    protected override void OnParametersSet() => _current = GroupIconService.Key(Group);
+
+    private void Pick(string key)
+    {
+        GroupIconService.Set(Group, key);
+        MudDialog.Close(DialogResult.Ok(key));
+    }
+
+    private void Reset()
+    {
+        GroupIconService.Reset(Group);
+        MudDialog.Close(DialogResult.Ok(GroupIconService.Key(Group)));
+    }
+
+    private void Close() => MudDialog.Cancel();
+}

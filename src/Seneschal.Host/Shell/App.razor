@@ -1,0 +1,95 @@
+@inject ExtensionAssets ExtensionAssets
+<!DOCTYPE html>
+<html lang="en" class="nav-loading">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <base href="/" />
+    <ResourcePreloader />
+    <link rel="stylesheet" href="@Assets["_content/MudBlazor/MudBlazor.min.css"]" />
+    <link rel="stylesheet" href="@Assets["app.css"]" />
+    <link rel="stylesheet" href="@Assets["Seneschal.styles.css"]" />
+    @* The stylesheets of the extensions that are loaded *@
+    @foreach (var style in ExtensionAssets.StyleUrls)
+    {
+        <link rel="stylesheet" href="@style" data-extension-style />
+    }
+    <script>
+        // Used when an extension is imported while the page is open: adds its stylesheets without a reload
+        window.seneschalStyles = function (urls) {
+            urls.forEach(function (url) {
+                if (document.querySelector('link[data-extension-style][href="' + url + '"]')) return;
+                var link = document.createElement('link');
+                link.rel = 'stylesheet';
+                link.href = url;
+                link.setAttribute('data-extension-style', '');
+                document.head.appendChild(link);
+            });
+        };
+        // The thin bar at the top: shown from the page load and from the click on a link to another page, until the app has drawn the new page.
+        // It starts in the browser, so it appears even while the app is busy building the page
+        (function () {
+            var root = document.documentElement, timer;
+            window.seneschalNavBusy = function (on) {
+                clearTimeout(timer);
+                root.classList.toggle('nav-loading', on);
+                if (on) timer = setTimeout(function () { root.classList.remove('nav-loading'); }, 20000);
+            };
+            window.seneschalNavBusy(true);
+            document.addEventListener('click', function (e) {
+                if (e.defaultPrevented || e.button !== 0 || e.ctrlKey || e.metaKey || e.shiftKey || e.altKey) return;
+                // The assistant button turns into a ring at once, before the app has answered
+                var launcher = e.target.closest && e.target.closest('.as-launcher');
+                if (launcher) { launcher.classList.add('is-opening'); return; }
+                var a = e.target.closest && e.target.closest('a[href]');
+                if (!a || (a.target && a.target !== '_self') || a.hasAttribute('download')) return;
+                var url = new URL(a.href, location.href);
+                if (url.origin !== location.origin || url.pathname + url.search === location.pathname + location.search) return;
+                window.seneschalNavBusy(true);
+            }, true);
+        })();
+        // The chat keeps its newest line in view
+        window.seneschalScrollEnd = function (id, force) {
+            var el = document.getElementById(id);
+            if (!el) return;
+            if (force || el.scrollHeight - el.scrollTop - el.clientHeight < 120) el.scrollTop = el.scrollHeight;
+        };
+        // The chat box: Enter sends, Shift+Enter adds a line, and the box grows with its text
+        window.seneschalFitInput = function (id) {
+            var el = document.getElementById(id);
+            if (!el) return;
+            el.style.height = 'auto';
+            el.style.height = Math.min(el.scrollHeight, 160) + 'px';
+        };
+        window.seneschalFocus = function (id) {
+            var el = document.getElementById(id);
+            if (el) el.focus();
+        };
+        window.seneschalComposer =function (inputId, sendId) {
+            var el = document.getElementById(inputId);
+            if (!el || el.dataset.ready) return;
+            el.dataset.ready = '1';
+            el.addEventListener('input', function () { window.seneschalFitInput(inputId); });
+            el.addEventListener('keydown', function (e) {
+                if (e.key !== 'Enter' || e.shiftKey || e.isComposing) return;
+                e.preventDefault();
+                var send = document.getElementById(sendId);
+                if (send) send.click();
+            });
+        };
+    </script>
+    <ImportMap />
+    <link rel="icon" href="favicon.ico" sizes="any" />
+    <link rel="icon" type="image/png" href="favicon.png" />
+    <HeadOutlet @rendermode="InteractiveServer" />
+</head>
+
+<body>
+    <Routes @rendermode="InteractiveServer" />
+    <ReconnectModal />
+    <script src="@Assets["_content/MudBlazor/MudBlazor.min.js"]"></script>
+    <script src="@Assets["_framework/blazor.web.js"]"></script>
+</body>
+
+</html>

@@ -1,0 +1,80 @@
+name: Release
+
+# Run by hand: Actions, Release, Run workflow. Nothing is released by a push.
+# It builds Seneschal for Windows (x64 and arm64, with .NET included, so nothing has to be installed first), tags the commit it was
+# started on as v<version> and puts the zips and their checksums on a GitHub Release.
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Version such as 1.2.0. Leave empty for the number in version.txt plus the run number, for example 1.0.37
+        required: false
+        type: string
+      prerelease:
+        description: Mark as a pre-release
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Work out the version
+        id: version
+        shell: pwsh
+        env:
+          INPUT_VERSION: ${{ inputs.version }}
+        run: |
+          $version = "$env:INPUT_VERSION".Trim().TrimStart('v')
+          if (-not $version) { $version = "$((Get-Content version.txt).Trim()).${{ github.run_number }}" }
+          if ($version -notmatch '^\d+\.\d+\.\d+(-[0-9A-Za-z.-]+)?$') { throw "'$version' is not a version such as 1.2.0" }
+          "version=$version" >> $env:GITHUB_OUTPUT
+          Write-Host "Releasing $version"
+
+      - name: Build
+        run: dotnet build Seneschal.slnx -c Release
+
+      - name: Publish
+        shell: pwsh
+        run: |
+          $version = '${{ steps.version.outputs.version }}'
+          New-Item -ItemType Directory -Force dist | Out-Null
+          foreach ($rid in 'win-x64', 'win-arm64') {
+            # The app and its launcher (what the shortcuts start) go into one folder
+            foreach ($project in 'Seneschal.Host', 'Seneschal.Launcher') {
+              dotnet publish "src/$project" -c Release -r $rid --self-contained "-p:AppVersion=$version" -o "publish/$rid"
+              if ($LASTEXITCODE -ne 0) { throw "Publish of $project failed for $rid" }
+            }
+            Compress-Archive -Path "publish/$rid/*" -DestinationPath "dist/Seneschal-$version-$rid.zip"
+          }
+          # The installer goes with every release too: irm https://github.com/<repo>/releases/latest/download/install.ps1 | iex
+          Copy-Item install.ps1, install.cmd dist/
+          Get-ChildItem dist -Filter *.zip | ForEach-Object {
+            $hash = (Get-FileHash $_.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
+            "$hash  $($_.Name)"
+          } | Set-Content dist/SHA256SUMS.txt
+
+      - name: Create the release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $version = '${{ steps.version.outputs.version }}'
+          $flags = @()
+          if ('${{ inputs.prerelease }}' -eq 'true' -or $version.Contains('-')) { $flags += '--prerelease' }
+          gh release create "v$version" (Get-ChildItem dist | ForEach-Object FullName) --target "${{ github.sha }}" --title "Seneschal $version" --generate-notes @flags
+          if ($LASTEXITCODE -ne 0) { throw "Could not create the release (does v$version already exist?)" }

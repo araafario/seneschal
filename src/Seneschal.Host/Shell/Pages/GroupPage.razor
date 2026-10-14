@@ -1,0 +1,75 @@
+@page "/groups/{Slug}"
+@implements IDisposable
+@inject IToolRegistry Registry
+@inject GroupIcons GroupIconService
+@inject Favorites Favs
+
+@if (Slug == GroupSlug.FavoritesSlug)
+{
+    <PageShell Title="Favorites" Icon="@Icons.Material.Outlined.StarBorder">
+        @if (FavoriteTools.Count == 0)
+        {
+            <div class="run-empty">No favorites yet</div>
+        }
+        else
+        {
+            <MudGrid Spacing="2">
+                @foreach (var tool in FavoriteTools)
+                {
+                    <MudItem xs="12" md="6" lg="4">
+                        <ToolCard Tool="tool" />
+                    </MudItem>
+                }
+            </MudGrid>
+        }
+    </PageShell>
+}
+else if (_group is null)
+{
+    <PageShell Title="Group not found" Icon="@Icons.Material.Outlined.ErrorOutline">
+        <Banner Tone="Banner.BannerTone.Warning" Title="@($"No group named {Slug}")" />
+    </PageShell>
+}
+else
+{
+    <PageShell Title="@_group.Key" Icon="@GroupIconService.Get(_group.Key)">
+        <MudGrid Spacing="2">
+            @foreach (var tool in _group)
+            {
+                <MudItem xs="12" md="6" lg="4">
+                    <ToolCard Tool="tool" />
+                </MudItem>
+            }
+        </MudGrid>
+    </PageShell>
+}
+@code {
+    [Parameter] public string Slug { get; set; } = "";
+
+    private IGrouping<string, ToolMetadata>? _group;
+
+    private List<ToolMetadata> FavoriteTools => Favs.Ids.Select(Registry.Get).OfType<ToolMetadata>().ToList();
+
+    protected override void OnInitialized()
+    {
+        GroupIconService.Changed += OnIconsChanged;
+        Registry.Changed += OnIconsChanged;
+        Favs.Changed += OnIconsChanged;
+    }
+
+    public void Dispose()
+    {
+        GroupIconService.Changed -= OnIconsChanged;
+        Registry.Changed -= OnIconsChanged;
+        Favs.Changed -= OnIconsChanged;
+    }
+
+    private void OnIconsChanged() => _ = InvokeAsync(() =>
+    {
+        _group = Registry.Groups.FirstOrDefault(g => GroupSlug.From(g.Key) == Slug);
+        StateHasChanged();
+    });
+
+    protected override void OnParametersSet() =>
+        _group = Registry.Groups.FirstOrDefault(g => GroupSlug.From(g.Key) == Slug);
+}

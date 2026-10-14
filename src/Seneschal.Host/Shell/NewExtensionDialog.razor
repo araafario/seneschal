@@ -1,0 +1,111 @@
+@using Seneschal.Dev
+@inject Scaffolder Scaffold
+@inject IToolRegistry Registry
+
+<MudDialog>
+    <TitleContent>
+        <MudText Typo="Typo.h6">Create New Extension</MudText>
+        <MudText Typo="Typo.body2" Style="opacity:.7">Set up a new tool</MudText>
+    </TitleContent>
+    <DialogContent>
+        <div class="ne-section">Details</div>
+        <MudTextField T="string" @bind-Value="_name" TextChanged="() => _error = null" Label="Name" Placeholder="RegexTester" Immediate="true"
+                      Error="@NameInvalid" ErrorText="Start with a capital letter and use only letters and digits"
+                      HelperText="@NameHelp"
+                      Variant="Variant.Outlined" Margin="Margin.Dense" Class="mb-4" id="ne-name" />
+        <MudTextField T="string" @bind-Value="_title" Label="Title (optional)" Placeholder="@DefaultTitle" Immediate="true"
+                      HelperText="Empty uses the name in words"
+                      Variant="Variant.Outlined" Margin="Margin.Dense" Class="mb-4" id="ne-title" />
+        <MudTextField T="string" @bind-Value="_description" Label="Description (optional)" Placeholder="A short summary of what the tool does" Immediate="true"
+                      Variant="Variant.Outlined" Margin="Margin.Dense" id="ne-description" />
+
+        <div class="ne-divider"></div>
+
+        <div class="ne-section">Sidebar</div>
+        <MudTextField T="string" @bind-Value="_group" Label="Group (optional)" Placeholder="Other" Immediate="true"
+                      HelperText="Pick an existing group or type a new one"
+                      Variant="Variant.Outlined" Margin="Margin.Dense" Class="mb-3" id="ne-group" />
+        @if (ExistingGroups.Any())
+        {
+            <div class="ne-groups">
+                @foreach (var g in ExistingGroups)
+                {
+                    <MudChip T="string" Size="Size.Small" Variant="@(_group.Trim() == g ? Variant.Filled : Variant.Outlined)"
+                             Color="@(_group.Trim() == g ? Color.Primary : Color.Default)" OnClick="() => _group = g">@g</MudChip>
+                }
+            </div>
+        }
+        <div class="ne-icon-row" id="ne-icon">
+            <MudIcon Icon="@GroupIconCatalog.All[_icon]" />
+            <div class="ne-icon-name">
+                <MudText Typo="Typo.body2">Icon</MudText>
+                <MudText Typo="Typo.caption" Style="opacity:.7">@GroupIconCatalog.Canonical(_icon)</MudText>
+            </div>
+            <MudButton Variant="Variant.Outlined" Size="Size.Small" OnClick="() => _picking = !_picking" id="ne-icon-change">@(_picking ? "Done" : "Change")</MudButton>
+        </div>
+        @if (_picking)
+        {
+            <IconPicker Value="@_icon" ValueChanged="PickIcon" />
+        }
+
+        <div class="ne-divider"></div>
+
+        <div class="ne-section">Options</div>
+        <MudCheckBox T="bool" @bind-Value="_services" Dense="true" id="ne-services" Label="Include an example service" />
+        <MudText Typo="Typo.caption" Class="ne-hint">Needs an app restart to activate instead of loading live</MudText>
+        <MudCheckBox T="bool" @bind-Value="_build" Dense="true" Class="mt-2" id="ne-build" Label="Build after creating" />
+        <MudText Typo="Typo.caption" Class="ne-hint">Compiles the project and loads it into the running app</MudText>
+
+        @if (_error is not null)
+        {
+            <MudAlert Severity="Severity.Error" Dense="true" Class="mt-4" id="ne-error">@_error</MudAlert>
+        }
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Cancel">Cancel</MudButton>
+        <MudButton Color="Color.Primary" Variant="Variant.Filled" OnClick="Create" Disabled="@(!CanCreate)" id="ne-create">Create</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = default!;
+
+    private string _name = "";
+    private string _title = "";
+    private string _description = "";
+    private string _group = "";
+    private string _icon = Scaffolder.DefaultIcon;
+    private string? _error;
+    private bool _picking;
+    private bool _services = true;
+    private bool _build = true;
+
+    /// <summary>Only complains once there is something to complain about; an empty name just keeps Create disabled.</summary>
+    private bool NameInvalid => _name.Trim().Length > 0 && !Scaffolder.IsValidName(_name);
+
+    private bool CanCreate => _name.Trim().Length > 0 && !NameInvalid;
+
+    private string NameHelp => CanCreate ? $"Creates the folder extensions/{_name.Trim()}" : "Becomes the project folder name";
+
+    private string DefaultTitle => CanCreate ? Scaffolder.DefaultTitle(_name) : "Regex Tester";
+
+    private IEnumerable<string> ExistingGroups =>
+        Registry.InstalledGroups.Select(x => x.Key).Where(k => k != ToolRegistry.OtherGroup);
+
+    private void PickIcon(string key)
+    {
+        _icon = key;
+        _picking = false;
+    }
+
+    private void Create()
+    {
+        var result = Scaffold.Create(new NewExtension(_name, _title, _group, _description, _icon, _services));
+        if (result.Ok)
+            MudDialog.Close(DialogResult.Ok(new CreatedExtension(result, _name.Trim(), _build)));
+        else
+            _error = result.Message;
+    }
+
+    private void Cancel() => MudDialog.Cancel();
+}

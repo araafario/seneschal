@@ -1,0 +1,66 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <AssemblyName>Seneschal</AssemblyName>
+    <RootNamespace>Seneschal</RootNamespace>
+    <ApplicationIcon>seneschal.ico</ApplicationIcon>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <BlazorDisableThrowNavigationException>true</BlazorDisableThrowNavigationException>
+    <RepoRoot>$([System.IO.Path]::GetFullPath('$(MSBuildProjectDirectory)\..\..\'))</RepoRoot>
+  </PropertyGroup>
+
+  <!-- The release pipeline passes -p:AppVersion=1.0.37. It is not called Version on purpose: a global Version would also reach the SDK and the
+       extensions, which carry their own. A build on a developer machine says it is one. -->
+  <PropertyGroup>
+    <Version Condition="'$(AppVersion)' != ''">$(AppVersion)</Version>
+    <Version Condition="'$(AppVersion)' == ''">0.0.0-dev</Version>
+  </PropertyGroup>
+
+  <!-- A copy of the app that runs from this output folder locks the files a build wants to replace (the error "being used by another
+       process" on Seneschal.Sdk.dll). End it first. Only one that runs from this very folder, so an installed copy is left alone. -->
+  <Target Name="StopRunningCopy" BeforeTargets="PrepareForBuild"
+          Condition="'$(DesignTimeBuild)' != 'true' and '$(OS)' == 'Windows_NT'">
+    <Exec Command="powershell -NoProfile -ExecutionPolicy Bypass -File &quot;$(MSBuildThisFileDirectory)stop-running-copy.ps1&quot; -Folder &quot;$(OutDir.TrimEnd('\'))&quot;"
+          ContinueOnError="true" IgnoreExitCode="true" StandardOutputImportance="high" />
+  </Target>
+
+  <ItemGroup>
+    <PackageReference Include="MudBlazor" Version="9.11.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Seneschal.Sdk\Seneschal.Sdk.csproj" />
+  </ItemGroup>
+
+  <!-- Extensions that ship with the app. They are built from their own projects and copied next to the app (and into a
+       publish) as extensions/<id>/, where the app loads them like any other extension. -->
+  <ItemGroup>
+    <BundledExtension Include="dev-environment" SourceProject="..\..\extensions\DevEnvironment\DevEnvironment.csproj" />
+    <ProjectReference Include="@(BundledExtension->'%(SourceProject)')" ReferenceOutputAssembly="false" />
+  </ItemGroup>
+
+  <Target Name="CopyBundledExtensions" AfterTargets="Build">
+    <ItemGroup>
+      <_Bundled Include="$(RepoRoot)artifacts\extensions\%(BundledExtension.Identity)\**\*">
+        <ExtId>%(BundledExtension.Identity)</ExtId>
+      </_Bundled>
+    </ItemGroup>
+    <Copy SourceFiles="@(_Bundled)"
+          DestinationFiles="@(_Bundled->'$(OutDir)extensions\%(ExtId)\%(RecursiveDir)%(Filename)%(Extension)')"
+          SkipUnchangedFiles="true" />
+  </Target>
+
+  <Target Name="IncludeBundledExtensionsInPublish" AfterTargets="ComputeResolvedFilesToPublishList">
+    <ItemGroup>
+      <_PublishBundled Include="$(RepoRoot)artifacts\extensions\%(BundledExtension.Identity)\**\*">
+        <ExtId>%(BundledExtension.Identity)</ExtId>
+      </_PublishBundled>
+      <ResolvedFileToPublish Include="@(_PublishBundled)"
+                             RelativePath="extensions\%(_PublishBundled.ExtId)\%(_PublishBundled.RecursiveDir)%(_PublishBundled.Filename)%(_PublishBundled.Extension)"
+                             CopyToPublishDirectory="PreserveNewest" />
+    </ItemGroup>
+  </Target>
+
+</Project>

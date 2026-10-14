@@ -1,0 +1,53 @@
+@* Searchable grid of every icon in GroupIconCatalog. Only the rows in view are rendered, so thousands of icons stay fast. *@
+<MudTextField T="string" Value="_filter" ValueChanged="OnFilterChanged" Immediate="true" Margin="Margin.Dense" Variant="Variant.Outlined"
+              Placeholder="@($"Search {GroupIconCatalog.Names.Count} icons")" Class="mb-3 icon-search"
+              Adornment="Adornment.End" AdornmentIcon="@Icons.Material.Outlined.Search" />
+<div class="icon-scroll" id="icon-scroll">
+    @if (_rows.Count == 0)
+    {
+        <MudText Class="pa-3" Style="opacity:.7">No icons match "@_filter".</MudText>
+    }
+    else
+    {
+        <Virtualize Items="_rows" ItemSize="@RowHeight" OverscanCount="3" Context="row">
+            <div class="icon-row">
+                @foreach (var name in row)
+                {
+                    <button type="button" @key="name" title="@name" data-icon="@name"
+                            class="@($"icon-pick {(name == Value ? "picked" : "")}")" @onclick="() => Pick(name)">
+                        <MudIcon Icon="@GroupIconCatalog.All[name]" />
+                    </button>
+                }
+            </div>
+        </Virtualize>
+    }
+</div>
+
+@code {
+    private const int Columns = 10;
+    private const float RowHeight = 48;
+
+    private string _filter = "";
+    private List<string[]> _rows = [];
+
+    /// <summary>The picked icon's key.</summary>
+    [Parameter] public string Value { get; set; } = "";
+
+    [Parameter] public EventCallback<string> ValueChanged { get; set; }
+
+    protected override void OnInitialized() => Rebuild();
+
+    private void OnFilterChanged(string? text)
+    {
+        _filter = text ?? "";
+        Rebuild();
+    }
+
+    private void Rebuild() =>
+        _rows = GroupIconCatalog.Names
+            .Where(n => n.Contains(_filter.Trim(), StringComparison.OrdinalIgnoreCase))
+            .Chunk(Columns)
+            .ToList();
+
+    private Task Pick(string name) => ValueChanged.InvokeAsync(name);
+}

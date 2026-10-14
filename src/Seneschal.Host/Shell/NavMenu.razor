@@ -1,0 +1,108 @@
+@implements IDisposable
+@inject IToolRegistry Registry
+@inject GroupIcons GroupIconService
+@inject Favorites Favs
+
+<MudNavMenu Class="app-nav">
+    <MudNavLink Href="/" Match="NavLinkMatch.All" Icon="@Icons.Material.Outlined.Home" title="All tools">All tools</MudNavLink>
+    <MudDivider Class="my-1" />
+    @if (FavoriteTools.Count > 0)
+    {
+        if (Expanded)
+        {
+            <div class="nav-group" id="nav-favorites">
+                <div class="nav-group-row">
+                    <MudNavLink Href="@GroupSlug.FavoritesHref" Icon="@Icons.Material.Outlined.StarBorder">Favorites</MudNavLink>
+                    <button type="button" class="@($"group-chevron {(IsOpen(FavoritesKey) ? "open" : "")}")"
+                            aria-label="Toggle Favorites" @onclick="() => Toggle(FavoritesKey)">
+                        <MudIcon Icon="@Icons.Material.Outlined.ChevronLeft" />
+                    </button>
+                </div>
+                @if (IsOpen(FavoritesKey))
+                {
+                    <div class="group-items">
+                        @foreach (var tool in FavoriteTools)
+                        {
+                            <MudNavLink Href="@($"/tools/{tool.Id}")" Icon="@tool.Icon" title="@tool.Title">@tool.Title</MudNavLink>
+                        }
+                    </div>
+                }
+            </div>
+        }
+        else
+        {
+            <MudNavLink Class="group-link" Href="@GroupSlug.FavoritesHref" Icon="@Icons.Material.Outlined.StarBorder" title="Favorites" />
+        }
+    }
+    @foreach (var group in Registry.Groups)
+    {
+        var name = group.Key;
+        var icon = GroupIconService.Get(name);
+        var href = GroupSlug.Href(name);
+        if (Expanded)
+        {
+            @* The header is a real link to the group page; the chevron is a separate button that only expands/collapses *@
+            <div class="nav-group">
+                <div class="nav-group-row">
+                    <MudNavLink Href="@href" Icon="@icon" title="@name">@name</MudNavLink>
+                    <button type="button" class="@($"group-chevron {(IsOpen(name) ? "open" : "")}")"
+                            aria-label="@($"Toggle {name}")" @onclick="() => Toggle(name)">
+                        <MudIcon Icon="@Icons.Material.Outlined.ChevronLeft" />
+                    </button>
+                </div>
+                @if (IsOpen(name))
+                {
+                    <div class="group-items">
+                        @foreach (var tool in group)
+                        {
+                            <MudNavLink Href="@($"/tools/{tool.Id}")" Icon="@tool.Icon" title="@tool.Title">@tool.Title</MudNavLink>
+                        }
+                    </div>
+                }
+            </div>
+        }
+        else
+        {
+            @* Minimized rail: one icon per group that opens the group page *@
+            <MudNavLink Class="group-link" Href="@href" Icon="@icon" title="@name" />
+        }
+    }
+</MudNavMenu>
+
+@code {
+    // Not a valid group name, so it can never collide with a tool group.
+    private const string FavoritesKey = "*favorites";
+
+    /// <summary>Groups the user collapsed; everything starts expanded.</summary>
+    private readonly HashSet<string> _collapsed = [];
+
+    [Parameter] public bool Expanded { get; set; } = true;
+
+    /// <summary>Starred tools that are still installed and turned on.</summary>
+    private List<ToolMetadata> FavoriteTools =>
+        Favs.Ids.Select(Registry.Get).OfType<ToolMetadata>().ToList();
+
+    protected override void OnInitialized()
+    {
+        GroupIconService.Changed += OnIconsChanged;
+        Registry.Changed += OnIconsChanged;
+        Favs.Changed += OnIconsChanged;
+    }
+
+    public void Dispose()
+    {
+        GroupIconService.Changed -= OnIconsChanged;
+        Registry.Changed -= OnIconsChanged;
+        Favs.Changed -= OnIconsChanged;
+    }
+
+    private void OnIconsChanged() => _ = InvokeAsync(StateHasChanged);
+
+    private bool IsOpen(string group) => !_collapsed.Contains(group);
+
+    private void Toggle(string group)
+    {
+        if (!_collapsed.Remove(group))
+            _collapsed.Add(group);
+    }
+}

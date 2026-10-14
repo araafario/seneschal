@@ -1,0 +1,5 @@
+<Project>
+
+  <Import Project="$(RepoRoot)src\Seneschal.Sdk\build\Seneschal.Extension.targets" />
+
+</Project>
