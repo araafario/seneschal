@@ -27,13 +27,14 @@ public static class AssistantModels
 public sealed class AssistantSettings
 {
     private static readonly JsonSerializerOptions Json = new() { WriteIndented = true };
-    private sealed record Saved(string? ClaudePath, bool AskBeforeChanges, string? Model, bool? ShowTestBrowser = null);
+    private sealed record Saved(string? ClaudePath, bool AskBeforeChanges, string? Model, bool? ShowTestBrowser = null, bool? AlwaysAllow = null);
 
     private readonly object _gate = new();
     private string? _claudePath;
     private string? _model;
     private bool _askBeforeChanges;
     private bool _showTestBrowser;
+    private bool _alwaysAllow;
 
     public AssistantSettings()
     {
@@ -45,6 +46,7 @@ public sealed class AssistantSettings
                 _askBeforeChanges = saved.AskBeforeChanges;
                 _model = saved.Model;
                 _showTestBrowser = saved.ShowTestBrowser ?? false;
+                _alwaysAllow = saved.AlwaysAllow ?? false;
             }
         }
         catch (Exception ex) when (ex is IOException or JsonException or UnauthorizedAccessException)
@@ -91,14 +93,36 @@ public sealed class AssistantSettings
     /// </summary>
     public bool ShowTestBrowser { get { lock (_gate) return _showTestBrowser; } set { Set(() => _showTestBrowser = value); } }
 
+    /// <summary>
+    /// Runs every action without asking, deleting and the other things that always ask included. Off by default. It applies to every MCP client,
+    /// because the approval is asked in the app and not per client.
+    /// </summary>
+    public bool AlwaysAllow { get { lock (_gate) return _alwaysAllow; } set { Set(() => _alwaysAllow = value); } }
+
     public event Action? Changed;
+
+    /// <summary>Back to the defaults (Claude is found by itself, the default model, ask before changes). The MCP secret is not a setting and stays.</summary>
+    public void ResetToDefaults()
+    {
+        lock (_gate)
+        {
+            _claudePath = null;
+            _model = null;
+            _askBeforeChanges = false;
+            _showTestBrowser = false;
+            _alwaysAllow = false;
+            try { File.Delete(AppPaths.File("assistant.json")); }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { }
+        }
+        Changed?.Invoke();
+    }
 
     private void Set(Action change)
     {
         lock (_gate)
         {
             change();
-            try { File.WriteAllText(AppPaths.File("assistant.json"), JsonSerializer.Serialize(new Saved(_claudePath, _askBeforeChanges, _model, _showTestBrowser), Json)); }
+            try { File.WriteAllText(AppPaths.File("assistant.json"), JsonSerializer.Serialize(new Saved(_claudePath, _askBeforeChanges, _model, _showTestBrowser, _alwaysAllow), Json)); }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { }
         }
         Changed?.Invoke();

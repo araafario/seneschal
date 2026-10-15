@@ -65,7 +65,7 @@ seneschal dev        say whether you can make extensions here (dev install adds 
 seneschal doctor     check the data folder, Claude Code, the .NET SDK and the MCP secret, and say what to fix
 ```
 
-Projects and containers Seneschal started keep running when it stops, and show up again as running when it starts. Inside the app, **Quit** is at the bottom of the sidebar and **Restart App** is in Options, Extensions.
+Projects and containers Seneschal started keep running when it stops, and show up again as running when it starts. Stop it with `seneschal stop`. Inside the app, **Restart App** is in Options, Extensions.
 
 ## Updates
 

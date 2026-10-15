@@ -5,24 +5,27 @@
 <MudDialog>
     <TitleContent>
         <MudText Typo="Typo.h6">New Project</MudText>
-        <MudText Typo="Typo.body2" Style="opacity:.7">A new extension from the template</MudText>
+        <MudText Typo="Typo.body2" Class="dlg-sub">A new extension from the template</MudText>
     </TitleContent>
     <DialogContent>
         <div class="ne-section">Details</div>
+        <div class="dlg-fields">
         <MudTextField T="string" @bind-Value="_name" TextChanged="() => _error = null" Label="Name" Placeholder="RegexTester" Immediate="true"
                       Error="@NameInvalid" ErrorText="Start with a capital letter and use only letters and digits"
                       HelperText="@NameHelp"
-                      Variant="Variant.Outlined" Margin="Margin.Dense" Class="mb-4" id="ne-name" AutoFocus="true" />
+                      Variant="Variant.Outlined" Margin="Margin.Dense" id="ne-name" AutoFocus="true" />
         <MudTextField T="string" @bind-Value="_title" Label="Title (optional)" Placeholder="@DefaultTitle" Immediate="true"
-                      Variant="Variant.Outlined" Margin="Margin.Dense" Class="mb-4" id="ne-title" />
+                      Variant="Variant.Outlined" Margin="Margin.Dense" id="ne-title" />
         <MudTextField T="string" @bind-Value="_description" Label="Description (optional)" Placeholder="A short summary of what the tool does" Immediate="true"
                       Variant="Variant.Outlined" Margin="Margin.Dense" id="ne-description" />
+        </div>
 
         <div class="ne-divider"></div>
 
         <div class="ne-section">Sidebar</div>
+        <div class="dlg-fields">
         <MudTextField T="string" @bind-Value="_group" Label="Group (optional)" Placeholder="Other" Immediate="true"
-                      Variant="Variant.Outlined" Margin="Margin.Dense" Class="mb-3" id="ne-group" />
+                      Variant="Variant.Outlined" Margin="Margin.Dense" id="ne-group" />
         @if (ExistingGroups.Any())
         {
             <div class="ne-groups">
@@ -45,14 +48,15 @@
         {
             <IconPicker Value="@_icon" ValueChanged="PickIcon" />
         }
+        </div>
 
         <div class="ne-divider"></div>
 
         <div class="ne-section">Options</div>
-        <MudSwitch T="bool" @bind-Value="_services" Color="Color.Primary" id="ne-services" Label="Include an example service" />
-        <MudText Typo="Typo.caption" Class="ne-hint">A state kept in the extension's own container, with the page and a tool to read it</MudText>
-        <MudSwitch T="bool" @bind-Value="_build" Color="Color.Primary" Class="mt-2" id="ne-build" Label="Build after creating" />
-        <MudText Typo="Typo.caption" Class="ne-hint">Compiles the project, and every later build is loaded by itself</MudText>
+        <div class="dlg-fields">
+            <SwitchRow @bind-Value="_services" Id="ne-services" Label="Include an example service" Hint="A state kept in the extension's own container, with the page and a tool to read it" />
+            <SwitchRow @bind-Value="_build" Id="ne-build" Label="Build after creating" Hint="Compiles the project, and every later build is loaded by itself" />
+        </div>
 
         @if (_error is not null)
         {
@@ -83,7 +87,7 @@
 
     private bool CanCreate => _name.Trim().Length > 0 && !NameInvalid;
 
-    private string NameHelp => CanCreate ? $"Creates the folder {System.IO.Path.Combine(Author.InRepo ? "extensions" : Author.Root, _name.Trim())}" : "Becomes the project folder name";
+    private string NameHelp => CanCreate ? $"Creates the folder {System.IO.Path.Combine(Author.Root, _name.Trim())}" : "Becomes the project folder name";
 
     private string DefaultTitle => CanCreate ? Scaffolder.DefaultTitle(_name) : "Regex Tester";
 

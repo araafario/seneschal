@@ -30,11 +30,6 @@
         <MudNavMenu Class="app-nav drawer-footer">
             <MudDivider Class="my-1" />
             <MudNavLink Href="/options" Icon="@Icons.Material.Outlined.Tune" title="Options">Options</MudNavLink>
-            @if (Seneschal.Cli.EngineMode.Active)
-            {
-                @* Running hidden, there is no window to close: this is how the app is stopped from inside *@
-                <MudNavLink OnClick="QuitAsync" Icon="@Icons.Material.Outlined.PowerSettingsNew" title="Quit Seneschal" id="quit-app">Quit</MudNavLink>
-            }
         </MudNavMenu>
     </MudDrawer>
     <MudMainContent Class="@($"app-main {(_expanded ? "" : "is-mini")}")">
@@ -51,14 +46,6 @@
     [Inject] private ExtensionAssets ExtensionFiles { get; set; } = default!;
     [Inject] private IJSRuntime JS { get; set; } = default!;
     [Inject] private NavigationManager Nav { get; set; } = default!;
-    [Inject] private IDialogService Dialogs { get; set; } = default!;
-    [Inject] private IHostApplicationLifetime Lifetime { get; set; } = default!;
-
-    private async Task QuitAsync()
-    {
-        var quit = await Dialogs.ShowMessageBoxAsync("Quit Seneschal", "Projects and containers it started keep running", yesText: "Quit", cancelText: "Cancel");
-        if (quit == true) Lifetime.StopApplication();
-    }
 
     private bool _expanded;
     private bool _dark;
@@ -72,14 +59,24 @@
         if (string.Equals(themed, "light", StringComparison.OrdinalIgnoreCase)) _dark = false;
         else if (string.Equals(themed, "dark", StringComparison.OrdinalIgnoreCase)) _dark = true;
         ExtensionFiles.Changed += OnAssetsChanged;
+        Settings.Changed += OnSettingsChanged;
         Nav.LocationChanged += OnLocationChanged;
     }
 
     public void Dispose()
     {
         ExtensionFiles.Changed -= OnAssetsChanged;
+        Settings.Changed -= OnSettingsChanged;
         Nav.LocationChanged -= OnLocationChanged;
     }
+
+    // A reset (or a change from another page) puts the saved theme and sidebar on screen at once
+    private void OnSettingsChanged() => _ = InvokeAsync(() =>
+    {
+        _dark = Settings.DarkMode;
+        _expanded = Settings.SidebarExpanded;
+        StateHasChanged();
+    });
 
     // The page the link leads to is drawn in the same pass as this layout, so the loading bar can go once this has rendered
     private bool _pageChanged;

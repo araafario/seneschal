@@ -34,7 +34,7 @@ public sealed class McpApprovals(AssistantSettings settings)
     }
 
     public bool Needs(McpEffect effect) =>
-        effect == McpEffect.Destructive || (effect == McpEffect.Change && settings.AskBeforeChanges);
+        !settings.AlwaysAllow && (effect == McpEffect.Destructive || (effect == McpEffect.Change && settings.AskBeforeChanges));
 
     public async Task<bool> AskAsync(string tool, string source, string description, JsonObject arguments, bool destructive, CancellationToken cancel)
     {

@@ -8,7 +8,7 @@ public sealed class UiSettings
 {
     private static readonly string FilePath = AppPaths.File("ui.json");
 
-    private sealed record State(bool SidebarExpanded = true, bool DarkMode = true, bool DevLiveReload = true, string[]? DevFolders = null);
+    private sealed record State(bool SidebarExpanded = true, bool DarkMode = true, bool DevLiveReload = true, string[]? DevFolders = null, string? ProjectsFolder = null);
 
     private State _state = new();
 
@@ -47,6 +47,13 @@ public sealed class UiSettings
         set => Update(_state with { DevLiveReload = value });
     }
 
+    /// <summary>Where the extension projects are made. Empty means the default, Documents/Seneschal/Projects.</summary>
+    public string? ProjectsFolder
+    {
+        get => _state.ProjectsFolder;
+        set => Update(_state with { ProjectsFolder = string.IsNullOrWhiteSpace(value) ? null : value.Trim() });
+    }
+
     /// <summary>Folders that hold dev builds, added in Options (the environment variable and the repository's own are not in here).</summary>
     public IReadOnlyList<string> DevFolders => _state.DevFolders ?? [];
 
@@ -75,6 +82,30 @@ public sealed class UiSettings
             // Nothing saved is the same as nothing added
         }
         return [];
+    }
+
+    /// <summary>Back to the defaults: the saved file is removed and everything that shows or acts on a setting is told.</summary>
+    public void ResetToDefaults()
+    {
+        try { File.Delete(FilePath); }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { }
+        _state = new();
+        Changed?.Invoke();
+    }
+
+    /// <summary>The projects folder as saved, read from the file before the app is built (the builds in it are loaded at startup).</summary>
+    internal static string? SavedProjectsFolder()
+    {
+        try
+        {
+            if (File.Exists(FilePath))
+                return JsonSerializer.Deserialize<State>(File.ReadAllText(FilePath))?.ProjectsFolder;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException)
+        {
+            // Nothing saved means the default
+        }
+        return null;
     }
 
     private void Update(State next)

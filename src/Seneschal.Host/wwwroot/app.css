@@ -3,7 +3,9 @@
 :root {
     --fs-title: 1.625rem; --fs-section: 1rem; --fs-row: .9375rem; --fs-body: .875rem; --fs-small: .8125rem;
     --h-ctl: 36px; --h-ctl-sm: 30px;
-    --gap-1: 4px; --gap-2: 8px; --gap-3: 12px; --gap-4: 16px; --gap-5: 24px;
+    --gap-1: 4px; --gap-2: 8px; --gap-3: 12px; --gap-4: 16px; --gap-5: 24px; --gap-6: 32px;
+    /* Layout tokens: the width of the Home content, the narrowest a tool card gets, the aside next to the grids, room kept clear of the assistant button */
+    --w-home: 1280px; --w-aside: 280px; --card-min: 280px; --h-nav-sub: 32px; --fab-clear: 96px; --fs-hero: 2rem;
 }
 
 html, body {
@@ -21,7 +23,8 @@ a { color: inherit; }
     --accent: #60cdff; --on-accent: #0b0b0b; --drawer-bg: #202020; --main-bg: #1c1c1c;
     --card: rgba(255,255,255,0.06); --card-hover: rgba(255,255,255,0.10); --card-border: rgba(255,255,255,0.10); --card-shadow: none;
     --tile: rgba(255,255,255,0.08); --field: #2b2b2b; --field-edge: rgba(255,255,255,0.55);
-    --terminal: rgba(0,0,0,0.22);
+    --terminal: rgba(0,0,0,0.22); --wash-blue: rgba(64,120,230,0.34); --wash-red: rgba(214,60,70,0.30); --wash-gold: rgba(240,192,90,0.16);
+    --hue-0: #7db0ff; --hue-1: #ff8a8a; --hue-2: #f2c75c;
     --ok: #66bb6a; --warn: #ffb300; --bad: #ff6b6b; --info: #60cdff;
 }
 /* Light: a cool paper-white page, solid white cards with a hairline border and a soft shadow, and the navy of the steward's coat as the accent */
@@ -31,7 +34,8 @@ a { color: inherit; }
     --accent: #1f4fa3; --on-accent: #fff; --drawer-bg: #e8edf6; --main-bg: #f4f6fb;
     --card: #fff; --card-hover: #f1f5fd; --card-border: rgba(27,34,51,0.11); --card-shadow: 0 1px 2px rgba(27,34,51,0.07);
     --tile: rgba(31,79,163,0.08); --field: #fff; --field-edge: rgba(27,34,51,0.45);
-    --terminal: #fbfcfe;
+    --terminal: #fbfcfe; --wash-blue: rgba(31,79,163,0.28); --wash-red: rgba(198,40,40,0.20); --wash-gold: rgba(201,150,30,0.20);
+    --hue-0: #1f4fa3; --hue-1: #b3261e; --hue-2: #8a5d00;
     --ok: #2e7d32; --warn: #a15c00; --bad: #c62828; --info: #1f4fa3;
 }
 
@@ -85,11 +89,9 @@ a { color: inherit; }
 .opt-group:first-child, .opt-head + .opt-group { margin-top: 0; }
 .opt-note { font-size: var(--fs-small); color: var(--fg-dim); line-height: 1.4; }
 .opt-stack { display: flex; flex-direction: column; gap: var(--gap-2); }
-.opt-guide { padding: var(--gap-4); border: 1px solid var(--card-border); border-radius: 6px; background: var(--card); max-width: 75ch; }
-.opt-steps { margin: 0 0 var(--gap-3); padding-left: var(--gap-5); display: flex; flex-direction: column; gap: var(--gap-2); font-size: var(--fs-body); line-height: 1.45; }
-.opt-guide .opt-note { margin: 0; }
-.opt-steps code { background: var(--tile); padding: 1px 6px; border-radius: 4px; font-size: .9em; }
 .opt-empty { padding: var(--gap-4); text-align: left; font-size: var(--fs-body); color: var(--fg-dim); border: 1px dashed var(--border); border-radius: 6px; }
+.opt-empty-rich { display: flex; flex-direction: column; align-items: flex-start; gap: var(--gap-1); }
+.opt-empty-rich > .mud-link { margin-top: var(--gap-2); font-size: var(--fs-body); }
 
 /* Setting card: icon, title and the line under it, the control at the right end. SettingExpander is a card whose sub-options open under it (one level) */
 .sc { border: 1px solid var(--card-border); border-radius: 6px; background: var(--card); box-shadow: var(--card-shadow); }
@@ -107,6 +109,7 @@ a { color: inherit; }
 .sc-badge.is-accent { color: var(--accent); border-color: var(--accent); }
 .sc-iconbtn { display: inline-flex; align-items: center; justify-content: center; width: var(--h-ctl); height: var(--h-ctl); border: 1px solid transparent; border-radius: 6px; background: transparent; color: var(--fg); cursor: pointer; }
 .sc-iconbtn:hover { background: var(--active); border-color: var(--border); }
+.sc-iconbtn.is-static { pointer-events: none; cursor: default; }
 .sc-iconbtn:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 .sc.sc-error { border-color: var(--bad); }
 .sc.sc-error .sc-icon { color: var(--bad); }
@@ -220,7 +223,7 @@ a { color: inherit; }
 /* Group header = link to the group page; the chevron is a separate 36x36 button (instant, no animation) that only
    expands/collapses. Outlined chevron: "<" when collapsed, "v" when expanded. */
 .nav-group-row { position: relative; }
-.nav-group-row .mud-nav-link { padding-right: 40px !important; }
+.nav-group-row .mud-nav-link { padding-right: 64px !important; }
 .group-chevron {
     position: absolute; right: 0; top: 1px; width: 36px; height: 36px; padding: 0;
     display: flex; align-items: center; justify-content: center;
@@ -229,8 +232,12 @@ a { color: inherit; }
 .group-chevron:hover { background: var(--hover); }
 .group-chevron .mud-icon-root { width: 20px; height: 20px; fill: var(--fg); transition: none !important; }
 .group-chevron.open .mud-icon-root { transform: rotate(-90deg); }
-/* Nested icons start where the group's label text starts: 8 (icon margin) + 20 (icon) + 10 (gap) = 38px, so the link is indented by 30 and its icon margin makes up the rest */
-.app-nav .group-items .mud-nav-link { padding-left: 30px !important; padding-right: 8px !important; }
+/* Items of a group hang from a hairline under the group's icon. Their icons start where the group's label starts (8 + 20 + 10 = 38px from the row's edge) */
+.app-nav .group-items { margin: 0 0 var(--gap-1) 17px; border-left: 1px solid var(--border); }
+.app-nav .group-items .mud-nav-link { height: var(--h-nav-sub); padding-left: 12px !important; padding-right: 8px !important; }
+.app-nav .group-items .mud-nav-link .mud-nav-link-text { margin-left: 10px; }
+.group-count { position: absolute; right: 36px; top: 1px; height: 36px; display: flex; align-items: center; font-size: var(--fs-small); color: var(--fg-dim); font-variant-numeric: tabular-nums; pointer-events: none; }
+.group-chevron:focus-visible, .app-nav .mud-nav-link:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
 /* Every sidebar label has the same weight: group headers and the active item are not bolder than the rest */
 .app-nav .mud-nav-link, .app-nav .mud-nav-link .mud-nav-link-text { font-weight: 400 !important; }
 .app-nav .mud-nav-link:hover { background-color: var(--hover); }
@@ -253,22 +260,44 @@ a { color: inherit; }
 .update-notice { padding: var(--gap-3) var(--gap-5) 0; }
 .update-notice .banner { margin-bottom: 0; }
 
-/* Home */
-.app-main { background: var(--main-bg); color: var(--fg); min-height: 100vh; }
-.home-head { display: flex; align-items: center; gap: var(--gap-3); min-height: 56px; }
-.home-logo { flex: none; width: 48px; height: 48px; object-fit: contain; }
-.home-title { margin: 0; font-size: var(--fs-title); font-weight: 600; line-height: 1.2; }
-.home-more { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--gap-5); margin-top: var(--gap-5); }
-@media (max-width: 800px) { .home-more { grid-template-columns: minmax(0, 1fr); } }
-.home-list { list-style: none; margin: 0; padding: 0; }
-.home-list li + li { border-top: 1px solid var(--card-border); }
-.home-row.mud-link { display: flex; flex-direction: column; gap: 2px; padding: var(--gap-3) var(--gap-1); color: var(--fg); border-radius: 4px; }
-.home-row.mud-link:hover { background: var(--hover); }
-.home-row-title { font-size: var(--fs-row); font-weight: 600; color: var(--fg); }
-.home-row-detail { font-size: var(--fs-small); color: var(--fg-dim); line-height: 1.4; }
+/* Home: the tool groups at the left, onboarding in an aside that stays in view however many tools there are. One column when the window is narrow */
+.app-main { background: var(--main-bg); color: var(--fg); min-height: 100vh; position: relative; isolation: isolate; }
+.home-page.mud-container { max-width: var(--w-home); }
+/* The one decoration of the app: a full-width glow behind the Home head in the colors of the logo (the navy coat, the crimson cape, the gold trim). It belongs to the page, not to the content column, so it never shows an edge. Static, it fades out inside 380px, and it is off in forced colors */
+.home-page.mud-container::before { content: ""; position: absolute; z-index: -1; top: 0; left: 0; right: 0; height: 380px; pointer-events: none;
+    background:
+        radial-gradient(ellipse 50% 100% at 14% 0%, var(--wash-blue), transparent 78%),
+        radial-gradient(ellipse 42% 95% at 62% 0%, var(--wash-red), transparent 78%),
+        radial-gradient(ellipse 26% 70% at 96% 0%, var(--wash-gold), transparent 78%); }
+@media (forced-colors: active) { .home-page.mud-container::before { display: none; } }
+.home-head { display: flex; align-items: center; gap: var(--gap-4); padding: var(--gap-4) 0 var(--gap-5); }
+.home-logo { flex: none; width: 72px; height: 72px; object-fit: contain; filter: drop-shadow(0 4px 12px rgba(0,0,0,.35)); }
+.home-title { margin: 0; font-size: var(--fs-hero); font-weight: 600; line-height: 1.15; }
 .home-tagline { margin: var(--gap-1) 0 0; max-width: 75ch; font-size: var(--fs-body); color: var(--fg-dim); line-height: 1.4; }
+.home-layout { display: grid; grid-template-columns: minmax(0, 1fr) var(--w-aside); gap: var(--gap-6); align-items: start; }
+.home-main { min-width: 0; }
+.home-group + .home-group { margin-top: var(--gap-5); }
+.home-group-title { display: flex; align-items: baseline; gap: var(--gap-2); margin: 0 0 var(--gap-2); font-size: var(--fs-section); font-weight: 600; line-height: 1.3; }
+.home-group-title a { text-decoration: none; }
+.home-group-title a:hover { text-decoration: underline; }
+.home-group-title a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 4px; }
+.home-dot { flex: none; align-self: center; width: 8px; height: 8px; border-radius: 50%; background: var(--hue, var(--accent)); }
+.home-count { font-size: var(--fs-small); font-weight: 400; color: var(--fg-dim); font-variant-numeric: tabular-nums; }
+.home-aside { display: flex; flex-direction: column; gap: var(--gap-5); position: sticky; top: var(--gap-4); max-height: calc(100vh - var(--gap-5)); overflow-y: auto; }
+@media (max-width: 1100px) {
+    .home-layout { grid-template-columns: minmax(0, 1fr); }
+    .home-aside { position: static; max-height: none; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--gap-5); }
+}
+@media (max-width: 800px) { .home-aside { grid-template-columns: minmax(0, 1fr); } }
+.home-list { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--card-border); }
+.home-list li + li { border-top: 1px solid var(--card-border); }
+.home-row.mud-link { display: flex; flex-direction: column; gap: 2px; padding: var(--gap-2) var(--gap-2); color: var(--fg); border-radius: 4px; }
+.home-row.mud-link:hover { background: var(--hover); }
+.home-row.mud-link:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.home-row-title { font-size: var(--fs-body); font-weight: 600; color: var(--fg); }
+.home-row-detail { font-size: var(--fs-small); color: var(--fg-dim); line-height: 1.4; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 /* The page frame (PageShell): the same width, padding and title bar on every page except the welcome page */
-.page-shell.mud-container { padding: var(--gap-4) var(--gap-5) var(--gap-5); }
+.page-shell.mud-container { padding: var(--gap-4) var(--gap-5) var(--fab-clear); }
 .page-header { display: flex; align-items: center; gap: var(--gap-3); min-height: 44px; }
 .page-header > .mud-icon-root { font-size: 1.875rem; flex: none; }
 .page-title { font-weight: 600; min-width: 0; }
@@ -295,7 +324,10 @@ a { color: inherit; }
 .group-divider { height: 1px; background: var(--border); margin: var(--gap-4) 0 var(--gap-3); }
 .section-title { font-weight: 600; padding-bottom: 4px; margin-bottom: var(--gap-3); border-bottom: 1px solid var(--border); }
 
-.tool-link { display: block; height: 100%; }
+/* Tool card: a link to the tool. Title on one line, description on two at most (both show in full as a tooltip), so cards stay one rhythm whatever the text. */
+.tool-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(var(--card-min), 100%), 1fr)); gap: var(--gap-2); }
+.tool-link { display: block; min-width: 0; border-radius: 6px; }
+.tool-link:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .tool-card {
     box-shadow: var(--card-shadow);
     display: flex;
@@ -304,18 +336,30 @@ a { color: inherit; }
     gap: var(--gap-3);
     padding: var(--gap-3);
     height: 100%;
+    min-height: 64px;
     background: var(--card) !important;
     color: var(--fg);
     border: 1px solid var(--card-border);
     border-radius: 6px;
 }
-.tool-card:hover { background: var(--card-hover) !important; }
-.tool-icon .mud-icon-root { width: 24px; height: 24px; font-size: 24px; }
-.tool-icon { flex: none; display: flex; align-items: center; justify-content: center; width: 24px; height: 24px; margin-top: 1px; color: var(--fg-dim); }
-.tool-icon .mud-icon-root { font-size: 2.5rem; color: var(--fg); }
-.tool-text { flex: 1; min-width: 0; padding-top: 2px; }
-.tool-title.mud-typography { font-size: var(--fs-row); font-weight: 600; line-height: 1.3; color: var(--fg); margin-bottom: 4px; }
-.tool-desc.mud-typography { font-size: var(--fs-small); line-height: 1.4; color: var(--fg-dim); }
+.tool-card:hover, .tool-link:focus-visible .tool-card { background: var(--card-hover) !important; }
+.tool-icon { flex: none; display: flex; align-items: center; justify-content: center; width: 36px; height: 36px; border-radius: 6px; color: var(--hue, var(--accent)); background: color-mix(in srgb, var(--hue, var(--accent)) 16%, transparent); }
+.tool-icon .mud-icon-root { width: 20px; height: 20px; font-size: 20px; }
+.hue-blue { --hue: var(--hue-0); } .hue-red { --hue: var(--hue-1); } .hue-gold { --hue: var(--hue-2); } .hue-neutral { --hue: var(--fg-dim); }
+/* The color choices of a group in Appearance: a small round swatch each, the chosen one ringed. 28px to hit, 16px to see */
+.swatches { display: inline-flex; align-items: center; gap: var(--gap-1); margin-right: var(--gap-2); }
+.swatch { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; padding: 0; border: 0; border-radius: 50%; background: transparent; cursor: pointer; }
+.swatch::before { content: ""; width: 16px; height: 16px; border-radius: 50%; background: var(--hue, var(--fg-dim)); }
+.swatch:hover { background: var(--hover); }
+.swatch.is-on { background: var(--active); box-shadow: inset 0 0 0 2px var(--accent); }
+.swatch:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.swatch-auto::before { display: none; }
+.swatch-auto .mud-icon-root { width: 16px; height: 16px; color: var(--fg-dim); }
+.tool-text { flex: 1; min-width: 0; }
+.tool-title { font-size: var(--fs-row); font-weight: 600; line-height: 1.3; color: var(--fg); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tool-desc { margin-top: 2px; font-size: var(--fs-small); line-height: 1.4; color: var(--fg-dim); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: anywhere; }
+.tool-go.mud-icon-root { flex: none; align-self: center; width: 20px; height: 20px; color: var(--fg-dim); opacity: 0; }
+.tool-card:hover .tool-go, .tool-link:focus-visible .tool-go { opacity: 1; }
 h1:focus {
     outline: none;
 }
@@ -349,15 +393,23 @@ h1:focus {
 .mud-button-root.mud-button .mud-icon-root { font-size: 1.25rem; }
 .page-actions .mud-button-root { white-space: nowrap; }
 
-/* Dialogs: room around the content and the buttons so nothing sits against the edge */
-.mud-dialog .mud-dialog-title { padding: var(--gap-4) 20px 4px; }
-.mud-dialog .mud-dialog-content { padding: 4px 20px 4px; }
-.mud-dialog .mud-dialog-actions { padding: var(--gap-3) 20px var(--gap-4); gap: var(--gap-2); }
+/* Dialogs: 24px of room around everything (docs/ui-guidelines.md, Layout and spacing). Fields in a form are 16px apart, sections are told apart
+   by a hairline with 24px above and 16px below it, and the small section label sits 12px above its fields. */
+.mud-dialog .mud-dialog-title { padding: var(--gap-5) var(--gap-5) var(--gap-2); }
+.mud-dialog .mud-dialog-content { padding: var(--gap-2) var(--gap-5); }
+.mud-dialog .mud-dialog-actions { padding: var(--gap-4) var(--gap-5) var(--gap-5); gap: var(--gap-2); }
+.dlg-sub.mud-typography { margin-top: var(--gap-1); color: var(--fg-dim); }
+.dlg-fields { display: flex; flex-direction: column; gap: var(--gap-4); }
 
-/* New extension dialog: sections separated by a thin rule, each with a small heading */
-.ne-section { font-size: var(--fs-small); font-weight: 600; letter-spacing: .06em; text-transform: uppercase; opacity: .65; margin-bottom: var(--gap-2); }
-.ne-divider { height: 1px; background: var(--border); margin: var(--gap-3) 0; }
-.ne-hint { display: block; opacity: .7; margin: -2px 0 0 32px; font-size: var(--fs-small); }
+.ne-section { margin-bottom: var(--gap-3); font-size: var(--fs-small); font-weight: 600; letter-spacing: .06em; text-transform: uppercase; opacity: .65; }
+.ne-divider { height: 1px; margin: var(--gap-5) 0 var(--gap-4); background: var(--border); }
+
+/* A switch with its label and one dim line: both lines are one column, so the description starts where the label starts */
+.sw-row { display: flex; align-items: flex-start; gap: var(--gap-3); }
+.sw-row .mud-switch { margin: 0; flex: none; }
+.sw-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; padding-top: var(--gap-1); cursor: pointer; }
+.sw-label { font-size: var(--fs-body); font-weight: 600; line-height: 1.3; }
+.sw-hint { font-size: var(--fs-small); color: var(--fg-dim); line-height: 1.4; }
 
 /* Tutorial: numbered quick start steps and collapsed reference sections */
 .tutorial { max-width: 75ch; }
@@ -496,11 +548,15 @@ html.nav-loading::before { opacity: 1; transition-delay: 0s; animation: nav-slid
 .as-approval-tool { font-size: .75rem; color: var(--fg-dim); }
 .as-approval-desc { margin-top: 4px; font-size: .8125rem; color: var(--fg-dim); }
 .as-approval .as-tool-text { margin: 8px 0 0; }
-.as-question { border-color: var(--border); background: var(--card); }
-.as-options { display: flex; flex-direction: column; gap: var(--gap-1); margin-top: var(--gap-2); }
-.as-option { display: flex; align-items: flex-start; justify-content: flex-start; gap: var(--gap-3); width: 100%; padding: var(--gap-2) var(--gap-3); border: 1px solid var(--border); border-radius: 4px; background: transparent; color: inherit; font: inherit; text-align: left; cursor: pointer; }
-.as-option:hover { background: var(--hover); border-color: var(--accent); }
-.as-option:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.as-question { flex: none; max-height: 50%; overflow-y: auto; margin: 0 var(--gap-3) var(--gap-3); padding: var(--gap-3); border: 1px solid var(--border); border-radius: 8px; background: var(--card); }
+.as-question .as-approval-head { align-items: flex-start; }
+.as-question .as-approval-head > .mud-icon-root { margin-top: 2px; color: var(--accent); }
+.as-question .as-approval-title { flex: 1; min-width: 0; line-height: 1.35; }
+.as-question .as-skip.mud-icon-button { flex: none; margin: -4px -4px 0 0; color: var(--fg-dim); }
+.as-options { display: flex; flex-direction: column; gap: 2px; margin-top: var(--gap-2); }
+.as-option { display: flex; align-items: flex-start; justify-content: flex-start; gap: var(--gap-3); width: 100%; padding: var(--gap-2) var(--gap-3); border: 1px solid transparent; border-radius: 6px; background: transparent; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.as-option:hover { background: var(--hover); }
+.as-option:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
 .as-option.is-on { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 12%, transparent); }
 .as-option-mark { flex: none; display: inline-flex; align-items: center; justify-content: center; width: 16px; height: 16px; margin-top: 2px; border: 2px solid var(--fg-dim); border-radius: 50%; color: var(--on-accent); }
 .as-option-mark.is-multi { border-radius: 4px; }
@@ -509,12 +565,12 @@ html.nav-loading::before { opacity: 1; transition-delay: 0s; animation: nav-slid
 .as-option-text { display: flex; flex-direction: column; align-items: flex-start; min-width: 0; text-align: left; }
 .as-option-label { font-size: var(--fs-body); font-weight: 600; }
 .as-option-desc { font-size: var(--fs-small); color: var(--fg-dim); }
-.as-other { width: 100%; margin-top: var(--gap-2); padding: var(--gap-2) var(--gap-3); border: 1px solid var(--border); border-radius: 4px; background: transparent; color: var(--fg); font: inherit; font-size: var(--fs-body); }
+.as-other { width: 100%; margin-top: var(--gap-2); padding: var(--gap-2) var(--gap-3); border: 1px solid var(--border); border-radius: 6px; background: var(--field); color: var(--fg); font: inherit; font-size: var(--fs-body); }
 .as-other:focus { outline: 0; border-color: var(--accent); }
 .as-other::placeholder { color: var(--placeholder); }
 .as-approval-actions { margin-top: 8px; display: flex; justify-content: flex-end; gap: 8px; }
 
-.as-composer { flex: none; display: flex; align-items: flex-end; gap: var(--gap-2); margin: 0 var(--gap-3) var(--gap-3); padding: 4px 4px 4px 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--card); transition: border-color .12s; }
+.as-composer { flex: none; display: flex; align-items: flex-end; gap: var(--gap-2); margin: 0 var(--gap-3) var(--gap-3); padding: 4px 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--card); transition: border-color .12s; }
 .as-composer:focus-within { border-color: var(--accent); }
 .as-input { flex: 1; min-width: 0; resize: none; border: 0; outline: 0; background: transparent; color: var(--fg); font: inherit; font-size: var(--fs-body); line-height: 1.5; padding: 7px 0; max-height: 160px; }
 .as-composer .mud-button-filled { color: var(--on-accent); }

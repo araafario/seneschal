@@ -47,6 +47,15 @@ public sealed class Favorites
         SaveAndNotify();
     }
 
+    /// <summary>Unstars everything and removes the saved file.</summary>
+    public void ResetToDefaults()
+    {
+        lock (_gate) _ids.Clear();
+        try { File.Delete(FilePath); }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { }
+        Changed?.Invoke();
+    }
+
     private void SaveAndNotify()
     {
         try

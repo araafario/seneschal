@@ -51,6 +51,7 @@
   <!-- The documents the assistant reads to make an extension. They ship inside the app so an installed copy has them too. -->
   <ItemGroup>
     <EmbeddedResource Include="..\..\docs\ui-guidelines.md" LogicalName="ui-guidelines.md" />
+    <EmbeddedResource Include="..\Seneschal.Sdk\build\Seneschal.Extension.targets" LogicalName="Seneschal.Extension.targets" />
     <EmbeddedResource Include="..\Seneschal.Sdk\README.md" LogicalName="sdk-reference.md" />
     <EmbeddedResource Include="Assistant\Instructions\character.md" LogicalName="instruction-character.md" />
     <EmbeddedResource Include="Assistant\Instructions\guide.md" LogicalName="instruction-guide.md" />

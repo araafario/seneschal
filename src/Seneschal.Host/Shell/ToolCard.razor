@@ -1,12 +1,17 @@
 @inject GroupIcons GroupIconService
+@inject IToolRegistry Registry
 
 <MudLink Href="@($"/tools/{Tool.Id}")" Underline="Underline.None" Class="tool-link">
     <MudCard Class="tool-card" Elevation="0">
-        <div class="tool-icon"><MudIcon Icon="@GroupIconService.Tool(Tool)" /></div>
+        <div class="@($"tool-icon hue-{GroupIconService.Color(Tool.Group, Registry.Groups.Select(g => g.Key))}")"><MudIcon Icon="@GroupIconService.Tool(Tool)" /></div>
         <div class="tool-text">
-            <MudText Typo="Typo.subtitle2" Class="tool-title">@Tool.Title</MudText>
-            <MudText Typo="Typo.body2" Class="tool-desc">@Tool.Description</MudText>
+            <div class="tool-title" title="@Tool.Title">@Tool.Title</div>
+            @if (!string.IsNullOrWhiteSpace(Tool.Description))
+            {
+                <div class="tool-desc" title="@Tool.Description">@Tool.Description</div>
+            }
         </div>
+        <MudIcon Icon="@Icons.Material.Outlined.ChevronRight" Class="tool-go" />
     </MudCard>
 </MudLink>
 

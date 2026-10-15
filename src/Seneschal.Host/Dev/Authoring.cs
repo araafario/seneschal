@@ -5,41 +5,31 @@ namespace Seneschal.Dev;
 
 /// <summary>
 /// What the assistant needs to make an extension without an editor: create the project, read and write its files, build it and load it.
-/// Run from source it works in this repository's <c>extensions/</c> folder, where a build loads live. An installed Seneschal works in
-/// a folder of the user's own (<c>SENESCHAL_EXTENSIONS_DIR</c>, by default <c>source/seneschal-extensions</c> in the home folder). A project made
-/// there is added to the folders Seneschal watches, so every build of it, from here or from a terminal, is loaded as a dev build like any other
-/// project. Every file operation is confined to one project folder.
+/// Projects live in a folder of the user's own, the same from source and installed: Options (Projects folder), or <c>SENESCHAL_EXTENSIONS_DIR</c>,
+/// or <c>Documents/Seneschal/Projects</c>. Never in the Seneschal repository. A project made there is added to the folders Seneschal watches, so every
+/// build of it, from here or from a terminal, is loaded as a dev build like any other project. Every file operation is confined to one project folder.
 /// </summary>
-public sealed class Authoring(DevMode dev, Scaffolder scaffolder, Workspace workspace, DotnetSdk sdk, DllExtensions extensions, DevWatcher watcher)
+public sealed class Authoring(DotnetSdk sdk, DllExtensions extensions, DevWatcher watcher, Seneschal.Shell.UiSettings settings)
 {
     private const int MaxFileBytes = 256 * 1024;
     private static readonly SemaphoreSlim BuildLock = new(1, 1);
     private static readonly string[] TextTypes = [".cs", ".razor", ".css", ".json", ".md", ".csproj", ".js", ".props", ".targets", ".txt", ".html", ".svg", ".config"];
     private static readonly string[] Hidden = ["bin", "obj", "artifacts", ".vs", ".git", ".deleted"];
 
-    public bool InRepo => dev.Enabled;
-
     public bool Available => sdk.Available;
 
-    /// <summary>The folder that holds the extension projects.</summary>
-    public string Root => dev.Enabled
-        ? dev.ExtensionsRoot!
-        : Environment.GetEnvironmentVariable("SENESCHAL_EXTENSIONS_DIR") is { Length: > 0 } custom
-            ? custom
-            : Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "source", "seneschal-extensions");
+    /// <summary>The folder that holds the extension projects: the environment variable, then the one set in Options, then Documents/Seneschal/Projects.</summary>
+    public string Root => ProjectsFolder.Root(settings);
+
+    public static string DefaultRoot => ProjectsFolder.DefaultRoot;
 
     public ScaffoldResult Create(NewExtension request)
     {
-        var result = InRepo ? scaffolder.Create(request) : Scaffolder.CreateStandalone(Root, request);
-        // A standalone project builds into its own artifacts/extensions: watching it is what makes every build load
-        if (result.Ok && !InRepo && result.Folder is not null) watcher.AddFolder(result.Folder);
-        return result;
+        // The new project is inside the projects folder, whose builds are all watched, so every build of it loads by itself
+        return Scaffolder.CreateLocal(Root, request);
     }
 
-    public IReadOnlyList<string> Projects() =>
-        !Directory.Exists(Root)
-            ? []
-            : Directory.GetDirectories(Root).Where(d => Directory.GetFiles(d, "*.csproj").Length > 0).Select(d => Path.GetFileName(d)!).Order(StringComparer.OrdinalIgnoreCase).ToList();
+    public IReadOnlyList<string> Projects() => [.. ProjectsFolder.Projects(Root).Select(d => Path.GetFileName(d)!)];
 
     public IReadOnlyList<string> Files(string name)
     {
@@ -80,9 +70,7 @@ public sealed class Authoring(DevMode dev, Scaffolder scaffolder, Workspace work
     public async Task<BuildResult> BuildAsync(string name, CancellationToken cancel)
     {
         var folder = Folder(name);
-        if (InRepo) return await workspace.BuildAsync(name, cancel);
 
-        watcher.AddFolder(folder);
         var built = await BuildFolderAsync(folder, cancel);
         if (!built.Ok) return built;
 
@@ -110,6 +98,9 @@ public sealed class Authoring(DevMode dev, Scaffolder scaffolder, Workspace work
         await BuildLock.WaitAsync(cancel);
         try
         {
+            // The SDK copy and the build rules next to the projects follow the app, so an update reaches a project at its next build
+            if (IsUnder(Root, projectFolder)) LocalSdk.Ensure(Root);
+
             var started = Stopwatch.StartNew();
             var psi = new ProcessStartInfo(info.Dotnet)
             {
@@ -146,6 +137,9 @@ public sealed class Authoring(DevMode dev, Scaffolder scaffolder, Workspace work
             BuildLock.Release();
         }
     }
+
+    private static bool IsUnder(string root, string folder) =>
+        Path.GetFullPath(folder).StartsWith(Path.GetFullPath(root).TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase);
 
     private string Folder(string name)
     {

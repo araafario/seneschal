@@ -25,6 +25,16 @@
     </SettingCard>
 </div>
 
+<h3 class="opt-group">Approvals</h3>
+<div class="opt-stack">
+    <SettingCard Key="always-allow" Icon="@Icons.Material.Outlined.GppMaybe" Title="Always allow actions"
+                 Description="Runs every action without asking, deleting included. Applies to every MCP client">
+        <Control>
+            <MudSwitch T="bool" Value="@Settings.AlwaysAllow" ValueChanged="v => Settings.AlwaysAllow = v" Color="Color.Primary" aria-label="Always allow actions" id="as-always-allow" />
+        </Control>
+    </SettingCard>
+</div>
+
 <h3 class="opt-group">Testing</h3>
 <div class="opt-stack">
     <SettingCard Key="test-browser" Icon="@Icons.Material.Outlined.Preview" Title="Show the test browser"

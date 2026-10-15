@@ -23,17 +23,22 @@ public sealed class DevWatcher(ExtensionStartup startup, DllExtensions extension
     /// <summary>Where a dev folder comes from, which decides whether it can be removed here.</summary>
     public sealed record DevFolder(string Path, string Source, bool Exists, bool Removable);
 
-    /// <summary>The folders that hold dev builds: the environment variable, the repository's own when running from source, and the ones added in Options.</summary>
+    /// <summary>
+    /// The folders that hold dev builds: the environment variable, the repository's own when running from source, the ones added in Options, and the
+    /// builds of every project in the projects folder (found each time, so a new project needs nothing to be watched).
+    /// </summary>
     public IReadOnlyList<string> Folders =>
-        [.. startup.DevFolderPaths.Concat(ui.DevFolders).Distinct(StringComparer.OrdinalIgnoreCase)];
+        [.. startup.DevFolderPaths.Concat(ui.DevFolders).Concat(ProjectsFolder.BuildFolders(ProjectsFolder.Root(ui))).Distinct(StringComparer.OrdinalIgnoreCase)];
 
     public IReadOnlyList<DevFolder> Entries
     {
         get
         {
             var added = ui.DevFolders;
+            var inProjects = ProjectsFolder.BuildFolders(ProjectsFolder.Root(ui));
             return [.. Folders.Select(f => new DevFolder(f,
                 added.Contains(f, StringComparer.OrdinalIgnoreCase) ? "Added here"
+                    : inProjects.Contains(f, StringComparer.OrdinalIgnoreCase) ? "Projects folder"
                     : dev.DevBuildsDir is { } repo && string.Equals(Path.GetFullPath(repo), Path.GetFullPath(f), StringComparison.OrdinalIgnoreCase) ? "This repository"
                     : "Environment variable",
                 Directory.Exists(f),

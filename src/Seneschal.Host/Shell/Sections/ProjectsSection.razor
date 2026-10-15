@@ -4,12 +4,13 @@
 @inject Workspace Work
 @inject DevMode Dev
 @inject UiSettings Ui
+@inject Authoring Author
 @inject DllExtensions Dlls
 @inject Restarter Restarter
 @inject IDialogService Dialogs
 @inject ISnackbar Snackbar
 
-<OptionHeader Title="Projects" Description="The extensions you are building. Each build is loaded into Seneschal the moment it finishes">
+<OptionHeader Title="Projects" Description="The extensions you are building. Installed ones are under Extensions">
     <MudButton Variant="Variant.Outlined" StartIcon="@Icons.Material.Outlined.FolderOpen" OnClick="AddAsync" id="add-project">Add Project</MudButton>
     <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Outlined.Add" OnClick="NewAsync" id="new-project">New Project</MudButton>
 </OptionHeader>
@@ -32,8 +33,15 @@
 }
 
 <div class="opt-stack">
+    <SettingCard Key="projects-folder" Icon="@Icons.Material.Outlined.Folder" Title="Projects folder"
+                 Description="Where New Project and the assistant make extensions, outside the Seneschal repository. Leave it empty for the default">
+        <div class="sc-form">
+            <MudTextField T="string" Value="@Ui.ProjectsFolder" ValueChanged="v => Ui.ProjectsFolder = v" Label="Folder" Placeholder="@Authoring.DefaultRoot"
+                          Variant="Variant.Outlined" Margin="Margin.Dense" id="projects-folder" />
+        </div>
+    </SettingCard>
     <SettingCard Key="live-reload" Icon="@Icons.Material.Outlined.Sync" Title="Live Reload"
-                 Description="Load a build the moment dotnet build ends, with no import and no restart. A project builds into its artifacts\extensions folder, and Seneschal watches that folder for each project below">
+                 Description="Load each build as soon as it finishes, with no import and no restart">
         <Control>
             <MudSwitch T="bool" Value="@Ui.DevLiveReload" ValueChanged="v => Ui.DevLiveReload = v" Color="Color.Primary" aria-label="Live reload" id="live-reload-switch" />
         </Control>
@@ -43,21 +51,14 @@
 @{
     var projects = Projects.List();
 }
+<h3 class="opt-group">Your Projects</h3>
 @if (projects.Count == 0)
 {
-    <h3 class="opt-group">Make Your First Extension</h3>
-    <div class="opt-guide" id="no-projects">
-        <ol class="opt-steps">
-            <li>Start a project: New Project writes a complete one for you, Add Project takes a folder you already have</li>
-            <li>Build it: press Build here, or run <code>dotnet build</code> in the project, from a terminal or Visual Studio</li>
-            <li>Use it: the tool shows up in the sidebar the moment the build ends, and again on every build after</li>
-        </ol>
-        <p class="opt-note">Prefer to describe it? Ask the assistant to help you create a new extension: it asks what you need, writes it, builds it and tests it</p>
+    <div class="opt-empty opt-empty-rich" id="no-projects">
+        <span>No projects yet</span>
+        <span class="opt-note">New Project starts one from the template, or ask the assistant to make it for you</span>
+        <MudLink Href="/options/extensions/tutorial" Underline="Underline.Hover">Read the guide</MudLink>
     </div>
-}
-else
-{
-    <h3 class="opt-group">Your Projects</h3>
 }
 <div class="opt-stack">
     @foreach (var project in projects)
@@ -121,9 +122,7 @@ else
     }
 </div>
 
-<MudLink Href="/options/extensions/tutorial" Underline="Underline.Hover" Color="Color.Inherit" Class="ext-footer">
-    Create an extension <MudIcon Icon="@Icons.Material.Outlined.ArrowForward" Size="Size.Small" />
-</MudLink>
+
 
 @code {
     private string? _building;

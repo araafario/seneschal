@@ -40,7 +40,7 @@ You need Seneschal and the .NET SDK, which the installer adds unless you chose a
 
 The in-app **tutorial** (Options, Extensions, then Create an extension) walks through the same with code you can copy.
 
-**Working on Seneschal itself?** Run it from source (see [Developing Seneschal](development.md)). **Options, Projects** then has **New Project**, which creates the project inside `extensions/` of the repository, adds it to the solution and can build and load it for you.
+**Working on Seneschal itself?** Run it from source (see [Developing Seneschal](development.md)). **Options, Projects** has **New Project**, which creates the project in your projects folder (`Documents\Seneschal\Projects`, never in the repository) and can build and load it for you. It builds against the Seneschal SDK that the running app uses.
 
 ## Testing your extension
 

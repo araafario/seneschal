@@ -58,5 +58,14 @@ public sealed class ExtensionSettings
         Changed?.Invoke();
     }
 
+    /// <summary>Switches every extension back on and removes the saved file.</summary>
+    public void ResetToDefaults()
+    {
+        lock (_gate) _disabled.Clear();
+        try { File.Delete(FilePath); }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { }
+        Changed?.Invoke();
+    }
+
     private sealed record State(string[] Disabled);
 }

@@ -3,6 +3,8 @@
 @using Seneschal.Updates
 @inject ShellLauncher Shell
 @inject Seneschal.Mcp.McpAddress Address
+@inject SettingsReset Reset
+@inject IDialogService Dialogs
 
 <OptionHeader Title="About" Description="Which version this is and where Seneschal keeps its files" />
 
@@ -27,6 +29,13 @@
     </SettingCard>
 </div>
 
+<h3 class="opt-group">Reset</h3>
+<div class="opt-stack">
+    <SettingCard Key="reset" Icon="@Icons.Material.Outlined.RestartAlt" Title="Factory reset" Description="Theme, icons, favorites and assistant settings go back to the defaults. Extensions, projects and chats stay">
+        <Control><MudButton Variant="Variant.Outlined" Color="Color.Error" Size="Size.Small" OnClick="ResetAsync" id="about-reset">Reset Settings</MudButton></Control>
+    </SettingCard>
+</div>
+
 @code {
     private string? _result;
     private bool _checking;
@@ -34,6 +43,15 @@
     private static string Version => EngineMode.Version == "0.0.0-dev" ? "Run from source" : EngineMode.Version;
 
     private static string LogFile => Path.Combine(AppPaths.DataDir, "logs", "seneschal.log");
+
+    private async Task ResetAsync()
+    {
+        var yes = await Dialogs.ShowMessageBoxAsync("Reset Settings", "Theme, sidebar, icons, favorites, assistant settings and switched off extensions go back to the defaults",
+            yesText: "Reset", cancelText: "Cancel");
+        if (yes != true) return;
+
+        Reset.Run();
+    }
 
     private async Task CheckAsync()
     {

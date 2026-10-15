@@ -17,7 +17,7 @@
    The panel draws its frame first and its content a moment later, so a click is answered at once even when the app is busy. *@
 @if (!_open)
 {
-    <button type="button" class="@($"as-launcher {(Chat.Running ? "is-busy" : "")}")" @onclick="OpenAsync" id="as-launch" aria-label="@(Chat.Running ? "Open the assistant, it is working" : "Open the assistant")">
+    <button type="button" class="@($"as-launcher {(Chat.Running ? "is-busy" : "")}")" @onclick="OpenAsync" id="as-launch" title="Ctrl+J" aria-keyshortcuts="Control+J" aria-label="@(Chat.Running ? "Open the assistant, it is working" : "Open the assistant")">
         <span class="as-launcher-text">@(Chat.Running ? "Working" : "Ask your Seneschal anything")</span>
         <span class="as-launcher-icon">
             <MudIcon Icon="@Icons.Material.Outlined.AutoAwesome" />
@@ -61,7 +61,6 @@ else
         {
             <header class="as-head">
                 <span class="as-head-icon"><MudIcon Icon="@Icons.Material.Outlined.AutoAwesome" /></span>
-                <span class="as-title">Assistant</span>
                 <MudMenu Label="@ModelLabel" EndIcon="@Icons.Material.Filled.ExpandMore" Size="Size.Small" Variant="Variant.Text" Color="Color.Inherit" Class="as-model-menu" PopoverClass="as-menu" Dense="true" AnchorOrigin="Origin.BottomLeft" TransformOrigin="Origin.TopLeft" id="as-model-menu">
                     @foreach (var model in AssistantModels.Choices(Settings.Model))
                     {
@@ -188,23 +187,19 @@ else
                                 break;
                         }
                     }
-                    @if (Chat.Running && Chat.Items.LastOrDefault() is not { Kind: ChatKind.Assistant } and not { Kind: ChatKind.Tool, Done: false })
+                    @if (Chat.Running)
                     {
-                        <div class="as-working" id="as-thinking"><span class="as-dot"></span>Working</div>
+                        <div class="as-working" id="as-thinking"><span class="as-dot"></span>Running for <span class="as-elapsed" data-since="@Chat.RunStarted.ToUnixTimeMilliseconds()">0s</span></div>
                     }
                 </div>
 
                 @ApprovalCards
 
                 <div class="as-composer">
-                    <textarea id="as-input" class="as-input" rows="1" placeholder="Ask Seneschal anything" @bind="_draft" @bind:event="oninput" disabled="@(!CanSend && !Chat.Running)"></textarea>
+                    <textarea id="as-input" class="as-input" rows="1" placeholder="Ask Seneschal anything" disabled="@(!CanSend && !Chat.Running)"></textarea>
                     @if (Chat.Running)
                     {
                         <MudTooltip Text="Stop" Placement="Placement.Top"><MudIconButton Icon="@Icons.Material.Filled.Stop" Color="Color.Inherit" Class="sq-btn" OnClick="Chat.Stop" id="as-stop" aria-label="Stop" /></MudTooltip>
-                    }
-                    else
-                    {
-                        <MudTooltip Text="Send" Placement="Placement.Top"><MudIconButton Icon="@Icons.Material.Filled.ArrowUpward" Color="Color.Primary" Variant="Variant.Filled" Class="sq-btn" OnClick="() => SendAsync(_draft)" Disabled="@(!CanSend)" id="as-send" aria-label="Send" /></MudTooltip>
                     }
                 </div>
             }
@@ -222,6 +217,7 @@ else
                 <div class="as-approval-head">
                     <MudIcon Icon="@Icons.Material.Outlined.HelpOutline" Size="Size.Small" />
                     <span class="as-approval-title">@question.Text</span>
+                    <MudTooltip Text="Skip"><MudIconButton Icon="@Icons.Material.Outlined.Close" Size="Size.Small" Color="Color.Inherit" Class="as-skip" OnClick="() => Questions.Answer(id, null)" id="as-skip" aria-label="Skip" /></MudTooltip>
                 </div>
                 <div class="as-options" role="@(question.Multiple ? "group" : "radiogroup")">
                     @foreach (var option in question.Options)
@@ -242,13 +238,12 @@ else
                     <input type="text" class="as-other" placeholder="Or write your own" aria-label="Your own answer" value="@Other(id)" @oninput="e => _other[id] = e.Value?.ToString() ?? string.Empty"
                            @onkeydown="e => OnOtherKey(question, e)" />
                 }
-                <div class="as-approval-actions">
-                    <MudButton Size="Size.Small" Variant="Variant.Text" OnClick="() => Questions.Answer(id, null)" id="as-skip">Skip</MudButton>
-                    @if (question.Multiple || question.AllowOther)
-                    {
+                @if (question.Multiple)
+                {
+                    <div class="as-approval-actions">
                         <MudButton Size="Size.Small" Variant="Variant.Filled" Color="Color.Primary" OnClick="() => Submit(question)" Disabled="@(!HasAnswer(question))" id="as-answer">Send</MudButton>
-                    }
-                </div>
+                    </div>
+                }
             </div>
         }
         @foreach (var request in Approvals.Pending)
@@ -326,7 +321,8 @@ else
     // What to try, taken from the tools that are turned on: each one offers a few requests of its own (ToolMetadata.Prompts)
     private List<Suggestion> _suggestions = [];
 
-    private string _draft = "";
+    // Typing stays in the browser: the text goes to the server only when Enter is pressed, so a keystroke redraws nothing
+    private DotNetObjectReference<AssistantWidget>? _self;
     private bool _open;
     private bool _ready;
     private bool _wire;
@@ -340,6 +336,7 @@ else
 
     protected override void OnInitialized()
     {
+        _self = DotNetObjectReference.Create(this);
         Chat.Changed += OnChanged;
         Approvals.Changed += OnChanged;
         Questions.Changed += OnChanged;
@@ -349,6 +346,7 @@ else
 
     public void Dispose()
     {
+        _self?.Dispose();
         Chat.Changed -= OnChanged;
         Approvals.Changed -= OnChanged;
         Questions.Changed -= OnChanged;
@@ -405,7 +403,7 @@ else
             else if (_wire && _ready && _view == View.Chat)
             {
                 _wire = false;
-                await JS.InvokeVoidAsync("seneschalComposer", "as-input", "as-send");
+                await JS.InvokeVoidAsync("seneschalComposer", "as-input", _self);
                 await JS.InvokeVoidAsync("seneschalScrollEnd", "as-messages", true);
                 await JS.InvokeVoidAsync("seneschalFocus", "as-input");
             }
@@ -456,9 +454,16 @@ else
     private async Task SendAsync(string text)
     {
         if (!CanSend || string.IsNullOrWhiteSpace(text)) return;
-        _draft = "";
-        try { await JS.InvokeVoidAsync("seneschalFitInput", "as-input"); } catch (JSDisconnectedException) { }
         await Chat.SendAsync(text);
+    }
+
+    /// <summary>Called by the browser when Enter is pressed in the composer. True when the message was taken, so the box can be emptied.</summary>
+    [JSInvokable]
+    public async Task<bool> Submit(string text)
+    {
+        if (!CanSend || string.IsNullOrWhiteSpace(text)) return false;
+        _ = SendAsync(text);
+        return true;
     }
 
     private void Reset() => Chat.Reset();

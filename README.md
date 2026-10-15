@@ -121,7 +121,7 @@ irm https://raw.githubusercontent.com/araafario/seneschal/main/install.ps1 | iex
 
 That installs it for you alone, with no administrator rights, together with the .NET SDK so you can make your own tools without Visual Studio (add `-NoDev` for a lite install, see the [install guide](docs/install.md)). Then open **Seneschal** from the Start menu, or type `seneschal` in a terminal.
 
-It runs quietly in the background. There is no console window to keep open, and `seneschal stop` (or **Quit** in the sidebar) closes it. `seneschal doctor` checks that everything it needs is in place and says what to fix.
+It runs quietly in the background. There is no console window to keep open, and `seneschal stop` closes it. `seneschal doctor` checks that everything it needs is in place and says what to fix.
 
 ## Questions
 

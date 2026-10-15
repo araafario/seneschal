@@ -13,14 +13,7 @@
         }
         else
         {
-            <MudGrid Spacing="2">
-                @foreach (var tool in FavoriteTools)
-                {
-                    <MudItem xs="12" md="6" lg="4">
-                        <ToolCard Tool="tool" />
-                    </MudItem>
-                }
-            </MudGrid>
+            <ToolGrid Tools="FavoriteTools" />
         }
     </PageShell>
 }
@@ -33,14 +26,7 @@ else if (_group is null)
 else
 {
     <PageShell Title="@_group.Key" Icon="@GroupIconService.Get(_group.Key)">
-        <MudGrid Spacing="2">
-            @foreach (var tool in _group)
-            {
-                <MudItem xs="12" md="6" lg="4">
-                    <ToolCard Tool="tool" />
-                </MudItem>
-            }
-        </MudGrid>
+        <ToolGrid Tools="_group" />
     </PageShell>
 }
 @code {

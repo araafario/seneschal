@@ -1,0 +1,11 @@
+@* The one grid of tool cards (Home, group pages, Favorites). It fills the row with as many columns as fit, so one card or many stay balanced and nothing stretches across a wide window *@
+<div class="tool-grid">
+    @foreach (var tool in Tools)
+    {
+        <ToolCard Tool="tool" @key="tool.Id" />
+    }
+</div>
+
+@code {
+    [Parameter, EditorRequired] public IEnumerable<ToolMetadata> Tools { get; set; } = [];
+}

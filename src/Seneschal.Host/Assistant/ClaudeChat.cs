@@ -51,6 +51,9 @@ public sealed class ClaudeChat(AssistantSettings settings, McpAddress address, C
 
     public bool Running { get; private set; }
 
+    /// <summary>When the current run began, for the "Running for" time. Only meaningful while <see cref="Running"/>.</summary>
+    public DateTimeOffset RunStarted { get; private set; }
+
     public string? SessionId { get; private set; }
 
     /// <summary>The id the conversation is saved under in the history.</summary>
@@ -147,6 +150,7 @@ public sealed class ClaudeChat(AssistantSettings settings, McpAddress address, C
         }
 
         Add(new ChatItem(ChatKind.User, prompt));
+        RunStarted = DateTimeOffset.UtcNow;
         Running = true;
         Changed?.Invoke();
         _cts = new CancellationTokenSource();

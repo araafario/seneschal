@@ -13,7 +13,7 @@ src/
   Seneschal.Sdk/            what an extension compiles against
   Seneschal.Host/           the app: shell, sidebar, Options, assistant, MCP endpoint, the seneschal command
   Seneschal.Launcher/       SeneschalApp.exe, what the Start menu shortcut starts (no console window)
-extensions/                 build files for an extension made in Options, Projects (Seneschal ships none)
+extensions/                 nothing ships or is made here; projects live in Documents/Seneschal/Projects
 docs/                       these guides and ui-guidelines.md
 assets/branding/            the logo and the icon
 artifacts/                  build output only, never source
@@ -34,14 +34,16 @@ dotnet build Seneschal.slnx
 
 A copy of Seneschal that runs from the build folder (`seneschal start` on a `bin\Release` build) is stopped for you before the next build of the app, so it does not lock the files being replaced. A copy running from somewhere else, such as an installed one, is left alone, and so is a Seneschal started by `dev.ps1`: stop that one before a full build, or build one extension alone.
 
+**Visual Studio.** Pressing F5 on the `https` profile runs `bin\Debug\net10.0\Seneschal.exe`, which holds the build files open until you stop debugging. Pick the **Seneschal (copy)** profile instead (or run `.\dev.ps1 -Attached -Copy`): it builds, copies the output to `artifacts\run` and runs that copy, so you can rebuild at any time. Restart App builds and copies again.
+
 ## Options, Projects
 
 **Options, Projects** is for whoever makes extensions (it shows when the .NET SDK is installed or the app runs from source). Live Reload lives there: a project builds into its own `artifacts\extensions` folder, Seneschal watches that folder and loads each build the moment it finishes, with no import and no restart.
 
-- **New Project** creates a complete project (inside `extensions/` of this repo and in `Seneschal.slnx` when run from a checkout, anywhere else otherwise) and watches it.
+- **New Project** creates a complete project in the projects folder (`Documents/Seneschal/Projects`, changeable in Options, Projects) and watches it. Every project in the projects folder is listed and watched by itself, with nothing to add: a project from somewhere else is added by hand with **Add Project**. Extensions you installed (a `.snx`, such as LoopUp) are not projects: they are under **Options, Extensions**. It is never made inside this repo, and it builds against the SDK copy in `.seneschal/` of that folder.
 - **Add Project** watches a project you already have.
 - **Build** runs `dotnet build`, shows compiler errors and loads the result live. **Remove Build** unloads it.
-- **Delete Project** (repo projects only) asks first, then moves the project to `.deleted/extensions/`, removes it from the solution and unloads it.
+- **Delete Project** (projects already committed in this repo only) asks first, then moves the project to `.deleted/extensions/`, removes it from the solution and unloads it.
 
 ## Working safely
 

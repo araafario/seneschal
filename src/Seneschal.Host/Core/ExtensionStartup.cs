@@ -34,7 +34,7 @@ public sealed class ExtensionStartup
 
     /// <summary>Every dev folder right now: the fixed ones and the ones added in Options.</summary>
     internal IReadOnlyList<string> CurrentDevFolders() =>
-        [.. _fixedDevFolders.Concat(Seneschal.Shell.UiSettings.SavedDevFolders()).Distinct(StringComparer.OrdinalIgnoreCase)];
+        [.. _fixedDevFolders.Concat(Seneschal.Shell.UiSettings.SavedDevFolders()).Concat(Seneschal.Dev.ProjectsFolder.BuildFolders(Seneschal.Dev.ProjectsFolder.RootFromSaved())).Distinct(StringComparer.OrdinalIgnoreCase)];
 
     /// <summary>The folders that hold dev builds: the ones in the environment variable, plus the repository's own when developing.</summary>
     internal static List<string> DevFolders(IHostEnvironment env)
@@ -50,7 +50,7 @@ public sealed class ExtensionStartup
     {
         _fixedDevFolders = devFolders;
         // What the folders added in Options hold is loaded at the start too, like the others
-        _devFolders = [.. devFolders.Concat(Seneschal.Shell.UiSettings.SavedDevFolders()).Distinct(StringComparer.OrdinalIgnoreCase)];
+        _devFolders = [.. devFolders.Concat(Seneschal.Shell.UiSettings.SavedDevFolders()).Concat(Seneschal.Dev.ProjectsFolder.BuildFolders(Seneschal.Dev.ProjectsFolder.RootFromSaved())).Distinct(StringComparer.OrdinalIgnoreCase)];
         var chosen = new List<Candidate>();
         foreach (var candidate in Discover())
         {

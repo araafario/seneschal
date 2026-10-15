@@ -5,7 +5,7 @@ using Seneschal.Sdk;
 namespace Seneschal.Mcp;
 
 /// <summary>What the AI assistant can do in the app itself: see which tools and extensions there are, and turn tools on or off.</summary>
-public sealed class HostMcpTools(IToolRegistry tools, ExtensionSettings settings, DllExtensions extensions, Authoring authoring, Seneschal.Shell.GroupIcons icons, DevWatcher watcher, InstructionStore instructions, McpAddress address, AssistantSettings assistant, McpQuestions questions) : IToolMcp
+public sealed class HostMcpTools(IToolRegistry tools, ExtensionSettings settings, DllExtensions extensions, Authoring authoring, Seneschal.Shell.GroupIcons icons, DevWatcher watcher, InstructionStore instructions, McpAddress address, AssistantSettings assistant, McpQuestions questions, SettingsReset reset) : IToolMcp
 {
     public IEnumerable<McpTool> McpTools(IServiceProvider services)
     {
@@ -88,6 +88,14 @@ public sealed class HostMcpTools(IToolRegistry tools, ExtensionSettings settings
                 return $"{args.Text("id")} is saved and used from the next message";
             });
 
+        yield return new McpTool("seneschal_settings_reset", "Put Seneschal's own settings back to the defaults (theme, sidebar, icons, favorites, assistant settings, which extensions are off) at once. Extensions, their data, projects, chats and the MCP secret stay. The user is asked first",
+            McpEffect.Destructive, McpSchema.None,
+            _ =>
+            {
+                reset.Run();
+                return "Settings are back to the defaults";
+            });
+
         yield return new McpTool("seneschal_lesson_add", "Write down what you learned from a correction or a mistake, so you do not repeat it. One short line that says what to do or not do and why. Never write a secret, a token or a password. Lessons are sent with every message and the user can edit them in Options, Instructions",
             McpEffect.Change, McpSchema.Object().Text("lesson", "One line", required: true),
             args =>
@@ -146,7 +154,7 @@ public sealed class HostMcpTools(IToolRegistry tools, ExtensionSettings settings
         }
 
         yield return new McpTool("seneschal_extension_guide", "How to make a Seneschal extension (a new tool) with the user: what to ask first, what every extension must have, the design rules in short, and the steps. Read it before you help anyone make one, then follow it",
-            McpEffect.Read, McpSchema.None, _ => AuthoringGuide.Text(instructions, authoring.InRepo, authoring.Root));
+            McpEffect.Read, McpSchema.None, _ => AuthoringGuide.Text(instructions, authoring.Root));
 
         yield return new McpTool("seneschal_ui_guidelines", "The full UI design rules of Seneschal: wording, spacing, color, components and the checklist. Read them before you write or change any page of an extension",
             McpEffect.Read, McpSchema.None, _ => instructions.Get("ui-guidelines"));
@@ -173,7 +181,7 @@ public sealed class HostMcpTools(IToolRegistry tools, ExtensionSettings settings
             });
 
         yield return new McpTool("seneschal_extension_list", "List the extension projects that can be worked on here (the folder they are in, and their names)",
-            McpEffect.Read, McpSchema.None, _ => new { Folder = authoring.Root, authoring.InRepo, Projects = authoring.Projects() });
+            McpEffect.Read, McpSchema.None, _ => new { Folder = authoring.Root, Projects = authoring.Projects() });
 
         yield return new McpTool("seneschal_extension_create_from_template", "Create a new extension project from Seneschal's template: a tool class, a page, an engine, a manifest and a stylesheet, ready to build. This is the only step of making an extension that needs Seneschal. After it, development is ordinary: edit the files and run dotnet build yourself when you can (the file and build tools below are for assistants that have no file access, such as the built-in one). Read seneschal_extension_guide and ask the user what the tool should do first",
             McpEffect.Change,

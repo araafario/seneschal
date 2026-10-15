@@ -6,7 +6,7 @@
 <OptionHeader Title="Appearance" Description="The icons the sidebar, the home page and search show for your tools" />
 
 <h3 class="opt-group">Icons</h3>
-<p class="opt-note opt-lead">An extension gives each of its tools a default icon. Pick another to use it instead, and reset to go back to the default</p>
+<p class="opt-note opt-lead">An extension gives each of its tools a default icon. Pick another to use it instead, and reset to go back to the default. The dot sets the color of the group on Home</p>
 
 <div class="opt-stack">
     @foreach (var group in Registry.InstalledGroups)
@@ -31,6 +31,28 @@
                 }
             </Control>
             <ChildContent>
+                <SettingCard Nested="true" Key="@($"color:{name}")" Title="Color" Description="For the icons and the dot on Home">
+                    <IconContent>
+                        <span class="sc-iconbtn is-static"><MudIcon Icon="@Icons.Material.Outlined.Palette" /></span>
+                    </IconContent>
+                    <Control>
+                        <span class="swatches" role="group" aria-label="@($"Color of {name}")">
+                            @foreach (var key in GroupIcons.ColorKeys)
+                            {
+                                var picked = GroupIconService.IsColorCustom(name) && GroupIconService.Color(name, AllGroups) == key;
+                                var color = key;
+                                <MudTooltip Text="@Pretty(key)">
+                                    <button type="button" class="@($"swatch hue-{key} {(picked ? "is-on" : "")}")" aria-label="@Pretty(key)" aria-pressed="@(picked ? "true" : "false")"
+                                            @onclick="() => GroupIconService.SetColor(name, color)"></button>
+                                </MudTooltip>
+                            }
+                            <MudTooltip Text="Automatic">
+                                <button type="button" class="@($"swatch swatch-auto {(GroupIconService.IsColorCustom(name) ? "" : "is-on")}")" aria-label="Automatic" aria-pressed="@(GroupIconService.IsColorCustom(name) ? "false" : "true")"
+                                        @onclick="() => GroupIconService.ResetColor(name)"><MudIcon Icon="@Icons.Material.Outlined.AutoAwesome" /></button>
+                            </MudTooltip>
+                        </span>
+                    </Control>
+                </SettingCard>
                 @foreach (var tool in group)
                 {
                     var id = tool.Id;
@@ -63,6 +85,10 @@
 }
 
 @code {
+    private IEnumerable<string> AllGroups => Registry.InstalledGroups.Select(g => g.Key);
+
+    private static string Pretty(string key) => char.ToUpperInvariant(key[0]) + key[1..];
+
     protected override void OnInitialized()
     {
         GroupIconService.Changed += OnChanged;

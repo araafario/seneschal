@@ -73,12 +73,13 @@ A data folder from the earlier name of the app (DevToolbelt) is adopted once so 
 
 Shown when the .NET SDK is installed or `DevMode` is on. `DevProjects` merges the projects of this repo (when the app finds `Seneschal.slnx` above its folder) and the folders being watched (Live Reload). Live Reload is the switch at the top: a project builds into its `artifacts/extensions` and `DevWatcher` loads each build.
 
-- **New Project** (`Authoring.Create`, `Scaffolder`) writes a complete project into `extensions/<Name>` and adds it to the solution.
+- **New Project** (`Authoring.Create`, `Scaffolder.CreateLocal`) writes a complete project into the projects folder (`Authoring.Root`: `SENESCHAL_EXTENSIONS_DIR`, then the folder set in Options, then `Documents/Seneschal/Projects`), never into this repository. `LocalSdk.Ensure` keeps the shared setup in that folder: a copy of `Seneschal.Sdk.dll`, the build rules (embedded from `src/Seneschal.Sdk/build`), and a `Directory.Build.props` and `.targets` that point every project at them. It is refreshed at every build, so an update reaches the projects.
+- **What is listed** (`DevProjects`): every project in the projects folder (`ProjectsFolder.Projects`, whose builds `DevWatcher.Folders` always watches, also at startup through `ExtensionStartup`), the folders added by hand, and the folders of the environment variable. Installed extensions are not projects.
 - **Build** (`Authoring`) runs `dotnet build`, shows the compiler errors and loads the result into the running app, live.
 - **Delete Project** (repo projects) moves the project to `.deleted/extensions/` at the repository root, removes it from the solution and deletes its build output.
   The dialog lists what will happen. A **built-in** extension (one the host project bundles) can be deleted too, but only after typing `seneschal` to confirm: besides the steps above it is removed from the `BundledExtension` items of `Seneschal.Host.csproj` (otherwise the next build would look for a project that is gone) and the copy built next to the app is deleted. Restart Seneschal afterwards. Move the project back from `.deleted/extensions` and add the `BundledExtension` line again to restore it.
 
-Only a direct child folder of `extensions/` that contains a project is ever touched, whatever name a caller passes.
+Only a direct child folder of `extensions/` that contains a project is ever touched by Delete, whatever name a caller passes.
 
 ## Running hidden (an installed app)
 
@@ -87,7 +88,7 @@ The same `Seneschal.exe` is the app and the command. Given a command (`open`, `s
 - `seneschal start` runs a second copy of itself as the **engine**: `Seneschal.exe --engine=true --urls=http://localhost:5380 --environment=Production` (the next free port when 5380 is taken, `SENESCHAL_PORT` to choose), started through the shell so it inherits nothing from the caller (a script that reads the output of `seneschal start` would otherwise wait for the engine to end), no window, and its output in `%AppData%/Seneschal/logs/seneschal.log` (over 5 MB it moves to `.old`). `Cli/EngineMode.cs`
 - The engine writes `engine.json` (process id, port, a secret, version) and removes it when it stops. The commands read it and talk to `GET /_engine/ping` and `POST /_engine/quit`, which only answer with the secret in the `X-Seneschal-Engine` header.
 - **Restart** in the app starts a new copy that waits for the old one to end first (`--wait-pid=<id>`), because nothing supervises the engine. From source with `dev.ps1 -Attached` it exits with code 42 instead. A copy started from a checkout (a `Seneschal.slnx` above its folder) is started as Development, so `dev.ps1` through the launcher has the Developer page.
-- **Quit** in the sidebar (engine only) and `seneschal stop` end the app. Projects it started keep running, as on any restart, and show up again as running when it starts.
+- `seneschal stop` ends the app (there is no Quit button in the sidebar). Projects it started keep running, as on any restart, and show up again as running when it starts.
 - Building the app first ends a copy that runs from the build's own output folder (`StopRunningCopy` in `Seneschal.Host.csproj`, which runs `stop-running-copy.ps1`), so it no longer locks the files the build replaces. It ends the process directly instead of asking `seneschal stop`, because a build that failed half way leaves a `Seneschal.exe` that cannot start. A copy running from another folder, such as an installed one, is left alone. `seneschal stop --from <folder>` does the same politely by hand.
 - The shutdown wait is 5 seconds, so an open browser tab does not hold the app up.
 
@@ -143,11 +144,11 @@ Not supported: keyed services in an extension.
 
 The *Help me create a new extension* card is always the first starter card. When the SDK is there, `HostMcpTools` offers the authoring tools: the guide (`Mcp/AuthoringGuide.cs`), the UI guidelines and the SDK README (the texts come from `InstructionStore`), `seneschal_extension_create_from_template` (the one tool that only Seneschal can do: the starting project), `_check`, `_preview` and `_list`, and `_files`, `_read`, `_write` and `_build`, which exist for an assistant with no file access or terminal: an AI that can edit files and run `dotnet` develops the ordinary way and uses only the template, the guides, the check and the preview. Without the SDK only `seneschal_extension_guide` is listed, and it tells the assistant to have the user run `seneschal dev install`.
 
-`Dev/Authoring.cs` does the work. Run from source it uses the repository's `extensions/` and `Workspace.BuildAsync` (live load). Installed, it uses `SENESCHAL_EXTENSIONS_DIR` (default `source/seneschal-extensions` in the home folder), builds with `dotnet build -c Release` and imports the `.snx` like Options, Extensions does. Reading and writing is confined to one project folder, only text file types, never `bin`, `obj` or `artifacts`, at most 256 KB a file. `seneschal_extension_build` is `Destructive` on purpose: it runs the written code, so it always asks.
+`Dev/Authoring.cs` does the work, the same from source and installed: projects are in `Authoring.Root` (see above), a build is `dotnet build` in the project folder, and the result is loaded live because the project's `artifacts/extensions` is watched. Reading and writing is confined to one project folder, only text file types, never `bin`, `obj` or `artifacts`, at most 256 KB a file. `seneschal_extension_build` is `Destructive` on purpose: it runs the written code, so it always asks.
 
 ## Extension templates
 
-`Dev/Scaffolder.cs` makes new extension projects. `Create` is for the Developer page (inside this repository, added to the solution). `CreateStandalone` is for everyone else: a project that builds from the `Seneschal.Sdk` package, used by `seneschal extension new` and by the assistant tool `seneschal_extension_create_from_template`. `seneschal_extension_guide` gives the assistant the guide to follow.
+`Dev/Scaffolder.cs` makes new extension projects. `CreateLocal` is for Options, Projects and the assistant tool `seneschal_extension_create_from_template`: a project in the projects folder that builds against the SDK copy the app uses. `CreateStandalone` is for people outside Seneschal: a project that builds from the `Seneschal.Sdk` package, used by `seneschal extension new`. `Create` (inside this repository) is kept only for the repository's own bundled examples and is no longer used by the app. `seneschal_extension_guide` gives the assistant the guide to follow.
 
 ## The Assistant
 

@@ -165,6 +165,51 @@ public sealed partial class Scaffolder(DevMode dev, IToolRegistry registry, DllE
     }
 
     /// <summary>
+    /// Creates an extension project in the projects folder (by default Documents/Seneschal/Projects), outside any checkout of Seneschal. The project
+    /// file is nearly empty: the folder's Directory.Build.props, written by <see cref="LocalSdk"/>, points every project at the copy of the SDK that
+    /// the running app uses.
+    /// </summary>
+    public static ScaffoldResult CreateLocal(string projectsRoot, NewExtension request)
+    {
+        var name = request.Name.Trim();
+        if (!ValidName().IsMatch(name))
+            return Fail("Start the name with a capital letter and use only letters and digits");
+        if (!GroupIconCatalog.All.ContainsKey(request.IconKey))
+            return Fail("Pick an icon from the list");
+
+        var root = Path.GetFullPath(projectsRoot);
+        var folder = Path.Combine(root, name);
+        if (Directory.Exists(root) && Directory.GetDirectories(root).Any(d => Path.GetFileName(d).Equals(name, StringComparison.OrdinalIgnoreCase)))
+            return Fail($"A project named {name} already exists in {root}");
+
+        var id = Kebab(name);
+        var title = string.IsNullOrWhiteSpace(request.Title) ? DefaultTitle(name) : request.Title.Trim();
+        var description = string.IsNullOrWhiteSpace(request.Description) ? $"{title} tool" : request.Description.Trim();
+        var group = request.Group.Trim();
+        var icon = IconExpression(request.IconKey);
+        var sdk = $"{SdkInfo.Version.Major}.{SdkInfo.Version.Minor}";
+
+        Directory.CreateDirectory(root);
+        LocalSdk.Ensure(root);
+        Directory.CreateDirectory(folder);
+        WriteProject(folder, name, id, title, description, group, icon, sdk, request.Services, $$"""
+            <Project Sdk="Microsoft.NET.Sdk.Razor">
+
+              <!-- The target framework, the Seneschal.Sdk reference and the build rules that stage and pack the extension come from the
+                   Directory.Build.props and .targets of the folder above, which Seneschal keeps up to date. -->
+              <PropertyGroup>
+                <RootNamespace>{{name}}</RootNamespace>
+                <ExtensionId>{{id}}</ExtensionId>
+              </PropertyGroup>
+
+            </Project>
+            """);
+        Write(folder, ".gitignore", "bin/\nobj/\nartifacts/\n.vs/\n*.user\n");
+
+        return new ScaffoldResult(true, $"Created {folder}", folder);
+    }
+
+    /// <summary>
     /// Creates an extension project that lives outside this repository: it builds from the Seneschal.Sdk package alone, needs no solution and no
     /// checkout of Seneschal, and works from an installed Seneschal. The folder is made inside <paramref name="parentFolder"/>.
     /// </summary>

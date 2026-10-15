@@ -20,7 +20,7 @@ builder.Services.AddSingleton(extensionServices);
 // Only the Development environment reads it by itself: without this, an exe run from a build folder serves empty files and the page has no styles
 builder.WebHost.UseStaticWebAssets();
 
-// An open browser tab holds a connection that would otherwise keep the app from ending for 30 seconds after Quit or Restart
+// An open browser tab holds a connection that would otherwise keep the app from ending for 30 seconds after a stop or Restart
 builder.Services.Configure<HostOptions>(options => options.ShutdownTimeout = TimeSpan.FromSeconds(5));
 
 builder.Services.AddRazorComponents()
@@ -41,6 +41,7 @@ builder.Services.AddSingleton<UiSettings>();
 builder.Services.AddSingleton<GroupIcons>();
 builder.Services.AddSingleton<Favorites>();
 builder.Services.AddSingleton<AssistantSettings>();
+builder.Services.AddSingleton<Seneschal.Core.SettingsReset>();
 builder.Services.AddSingleton<HostMcpTools>();
 builder.Services.AddSingleton<McpRegistry>();
 builder.Services.AddSingleton<McpApprovals>();

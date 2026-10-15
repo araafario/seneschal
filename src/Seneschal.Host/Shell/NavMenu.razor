@@ -2,6 +2,7 @@
 @inject IToolRegistry Registry
 @inject GroupIcons GroupIconService
 @inject Favorites Favs
+@inject NavigationManager Nav
 
 <MudNavMenu Class="app-nav">
     <MudNavLink Href="/" Match="NavLinkMatch.All" Icon="@Icons.Material.Outlined.Home" title="Home">Home</MudNavLink>
@@ -13,8 +14,9 @@
             <div class="nav-group" id="nav-favorites">
                 <div class="nav-group-row">
                     <MudNavLink Href="@GroupSlug.FavoritesHref" Icon="@Icons.Material.Outlined.StarBorder">Favorites</MudNavLink>
+                    <span class="group-count" aria-hidden="true">@FavoriteTools.Count</span>
                     <button type="button" class="@($"group-chevron {(IsOpen(FavoritesKey) ? "open" : "")}")"
-                            aria-label="Toggle Favorites" @onclick="() => Toggle(FavoritesKey)">
+                            aria-label="Toggle Favorites" aria-expanded="@(IsOpen(FavoritesKey) ? "true" : "false")" @onclick="() => Toggle(FavoritesKey)">
                         <MudIcon Icon="@Icons.Material.Outlined.ChevronLeft" />
                     </button>
                 </div>
@@ -45,8 +47,9 @@
             <div class="nav-group">
                 <div class="nav-group-row">
                     <MudNavLink Href="@href" Icon="@icon" title="@name">@name</MudNavLink>
+                    <span class="group-count" aria-hidden="true">@group.Count()</span>
                     <button type="button" class="@($"group-chevron {(IsOpen(name) ? "open" : "")}")"
-                            aria-label="@($"Toggle {name}")" @onclick="() => Toggle(name)">
+                            aria-label="@($"Toggle {name}")" aria-expanded="@(IsOpen(name) ? "true" : "false")" @onclick="() => Toggle(name)">
                         <MudIcon Icon="@Icons.Material.Outlined.ChevronLeft" />
                     </button>
                 </div>
@@ -73,7 +76,10 @@
     // Not a valid group name, so it can never collide with a tool group.
     private const string FavoritesKey = "*favorites";
 
-    /// <summary>Groups the user collapsed; everything starts expanded.</summary>
+    /// <summary>Past this many tools the groups start collapsed, so the sidebar stays short; the group of the open tool is always open.</summary>
+    private const int ManyTools = 12;
+
+    /// <summary>Groups that are collapsed. With few tools everything starts expanded.</summary>
     private readonly HashSet<string> _collapsed = [];
 
     [Parameter] public bool Expanded { get; set; } = true;
@@ -87,10 +93,36 @@
         GroupIconService.Changed += OnIconsChanged;
         Registry.Changed += OnIconsChanged;
         Favs.Changed += OnIconsChanged;
+        Nav.LocationChanged += OnLocationChanged;
+        if (Registry.All.Count() > ManyTools)
+        {
+            foreach (var group in Registry.Groups) _collapsed.Add(group.Key);
+            _collapsed.Add(FavoritesKey);
+            OpenGroupOfCurrentTool();
+        }
+    }
+
+    // Choosing a tool (from the search, a card or a link) shows where it lives in the sidebar
+    private void OnLocationChanged(object? sender, Microsoft.AspNetCore.Components.Routing.LocationChangedEventArgs e) =>
+        _ = InvokeAsync(() =>
+        {
+            OpenGroupOfCurrentTool();
+            StateHasChanged();
+        });
+
+    private void OpenGroupOfCurrentTool()
+    {
+        var path = new Uri(Nav.Uri).AbsolutePath;
+        const string prefix = "/tools/";
+        if (!path.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)) return;
+
+        var tool = Registry.Get(Uri.UnescapeDataString(path[prefix.Length..].TrimEnd('/')));
+        if (tool is not null) _collapsed.Remove(tool.Group);
     }
 
     public void Dispose()
     {
+        Nav.LocationChanged -= OnLocationChanged;
         GroupIconService.Changed -= OnIconsChanged;
         Registry.Changed -= OnIconsChanged;
         Favs.Changed -= OnIconsChanged;

@@ -15,11 +15,15 @@ public sealed class GroupIcons
     /// <summary>The file this was kept in before tools could have an icon of their own: only groups, as a flat map. Read once when there is no icons.json.</summary>
     private static readonly string LegacyPath = AppPaths.File("groups.json");
 
-    private sealed record Saved(Dictionary<string, string>? Groups, Dictionary<string, string>? Tools);
+    private sealed record Saved(Dictionary<string, string>? Groups, Dictionary<string, string>? Tools, Dictionary<string, string>? Colors = null);
 
     private readonly object _gate = new();
     private readonly Dictionary<string, string> _groups = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, string> _tools = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, string> _colors = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>The colors a group can have: the three of the logo, and a neutral one. They tint the icon tiles and the dot of the group on Home.</summary>
+    public static readonly string[] ColorKeys = ["blue", "red", "gold", "neutral"];
 
     /// <summary>Raised after an icon was changed or reset so open pages can refresh.</summary>
     public event Action? Changed;
@@ -33,6 +37,7 @@ public sealed class GroupIcons
                 var saved = JsonSerializer.Deserialize<Saved>(File.ReadAllText(FilePath));
                 foreach (var (group, key) in saved?.Groups ?? []) _groups[group] = key;
                 foreach (var (tool, key) in saved?.Tools ?? []) _tools[tool] = key;
+                foreach (var (group, key) in saved?.Colors ?? []) _colors[group] = key;
             }
             else if (File.Exists(LegacyPath))
             {
@@ -66,6 +71,47 @@ public sealed class GroupIcons
     }
 
     public void Set(string group, string key) => Change(_groups, group, key);
+
+    // Colors
+
+    /// <summary>
+    /// The color of a group: the one the user picked, or, when there is none, one of the three logo colors handed out in turn along the groups in
+    /// alphabetical order, so groups next to each other never share a color and the same group keeps its color until the set of groups changes.
+    /// </summary>
+    public string Color(string group, IEnumerable<string> allGroups)
+    {
+        lock (_gate)
+        {
+            if (_colors.TryGetValue(group, out var key) && ColorKeys.Contains(key)) return key;
+        }
+        var ordered = allGroups.Distinct(StringComparer.OrdinalIgnoreCase).Order(StringComparer.OrdinalIgnoreCase).ToList();
+        var index = ordered.FindIndex(g => g.Equals(group, StringComparison.OrdinalIgnoreCase));
+        return ColorKeys[Math.Max(index, 0) % 3];
+    }
+
+    public bool IsColorCustom(string group)
+    {
+        lock (_gate) return _colors.ContainsKey(group);
+    }
+
+    public void SetColor(string group, string key)
+    {
+        if (!ColorKeys.Contains(key)) return;
+        bool changed;
+        lock (_gate)
+        {
+            changed = !_colors.TryGetValue(group, out var current) || current != key;
+            _colors[group] = key;
+        }
+        if (changed) SaveAndNotify();
+    }
+
+    public void ResetColor(string group)
+    {
+        bool changed;
+        lock (_gate) changed = _colors.Remove(group);
+        if (changed) SaveAndNotify();
+    }
 
     public void Reset(string group) => Change(_groups, group, null);
 
@@ -118,12 +164,30 @@ public sealed class GroupIcons
         if (changed) SaveAndNotify();
     }
 
+    /// <summary>Back to the built-in icons: every choice is cleared and both saved files are removed.</summary>
+    public void ResetToDefaults()
+    {
+        lock (_gate)
+        {
+            _groups.Clear();
+            _tools.Clear();
+            _colors.Clear();
+        }
+        try
+        {
+            File.Delete(FilePath);
+            File.Delete(LegacyPath);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { }
+        Changed?.Invoke();
+    }
+
     private void SaveAndNotify()
     {
         try
         {
             Saved snapshot;
-            lock (_gate) snapshot = new(new(_groups), new(_tools));
+            lock (_gate) snapshot = new(new(_groups), new(_tools), new(_colors));
             Directory.CreateDirectory(Path.GetDirectoryName(FilePath)!);
             File.WriteAllText(FilePath, JsonSerializer.Serialize(snapshot, new JsonSerializerOptions { WriteIndented = true }));
         }

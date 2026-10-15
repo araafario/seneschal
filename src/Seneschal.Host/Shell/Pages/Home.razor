@@ -2,70 +2,64 @@
 @implements IDisposable
 @inject IToolRegistry Registry
 @inject Favorites Favs
+@inject GroupIcons GroupIconService
 
 <PageTitle>Seneschal</PageTitle>
 
-<MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="page-shell">
+<MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="page-shell home-page">
     <header class="home-head">
         <img src="@Assets["seneschal.png"]" alt="" class="home-logo" width="48" height="48" />
         <div>
             <h1 class="home-title">Seneschal</h1>
-            <p class="home-tagline">Your tools, one assistant that can use them, and an MCP server for your own AI</p>
+            <p class="home-tagline">Your tools and your assistant, in one place</p>
         </div>
     </header>
-    <div class="page-divider"></div>
-
-    @if (FavoriteTools.Count > 0)
-    {
-        <h2 class="opt-group" id="home-favorites">Favorites</h2>
-        <MudGrid Spacing="2">
-            @foreach (var tool in FavoriteTools)
+    <div class="home-layout">
+        <div class="home-main">
+            @if (FavoriteTools.Count > 0)
             {
-                <MudItem xs="12" md="6" lg="4">
-                    <ToolCard Tool="tool" />
-                </MudItem>
+                <section class="home-group" aria-labelledby="home-favorites">
+                    <h2 class="home-group-title" id="home-favorites"><span class="home-dot" aria-hidden="true"></span><a href="@GroupSlug.FavoritesHref">Favorites</a><span class="home-count">@FavoriteTools.Count</span></h2>
+                    <ToolGrid Tools="FavoriteTools" />
+                </section>
             }
-        </MudGrid>
-    }
 
-    @foreach (var group in Registry.All.GroupBy(t => t.Group).OrderBy(g => g.Key, StringComparer.OrdinalIgnoreCase))
-    {
-        <h2 class="opt-group">@group.Key</h2>
-        <MudGrid Spacing="2">
-            @foreach (var tool in group)
+            @foreach (var group in Registry.All.GroupBy(t => t.Group).OrderBy(g => g.Key, StringComparer.OrdinalIgnoreCase))
             {
-                <MudItem xs="12" md="6" lg="4">
-                    <ToolCard Tool="tool" />
-                </MudItem>
+                var id = $"home-group-{GroupSlug.From(group.Key)}";
+                <section class="home-group" aria-labelledby="@id">
+                    <h2 class="@($"home-group-title hue-{GroupIconService.Color(group.Key, Registry.All.Select(t => t.Group))}")" id="@id"><span class="home-dot" aria-hidden="true"></span><a href="@GroupSlug.Href(group.Key)">@group.Key</a><span class="home-count">@group.Count()</span></h2>
+                    <ToolGrid Tools="group" />
+                </section>
             }
-        </MudGrid>
-    }
-    @if (!Registry.All.Any())
-    {
-        <div class="opt-empty" id="no-tools">
-            Nothing here yet. Import an extension in <MudLink Href="/options/extensions">Options</MudLink>, or ask the assistant to help you create one
+            @if (!Registry.All.Any())
+            {
+                <div class="opt-empty" id="no-tools">
+                    Nothing here yet. Import an extension in <MudLink Href="/options/extensions">Options</MudLink>, or ask the assistant to help you create one
+                </div>
+            }
         </div>
-    }
 
-    <div class="home-more">
-        <section aria-labelledby="home-start">
-            <h2 class="opt-group" id="home-start">Get Started</h2>
-            <ul class="home-list">
-                @foreach (var step in Steps)
-                {
-                    <li><MudLink Href="@step.Href" Underline="Underline.None" Class="home-row"><span class="home-row-title">@step.Title</span><span class="home-row-detail">@step.Detail</span></MudLink></li>
-                }
-            </ul>
-        </section>
-        <section aria-labelledby="home-new">
-            <h2 class="opt-group" id="home-new">What's New</h2>
-            <ul class="home-list">
-                @foreach (var item in Shell.WhatsNew.Items)
-                {
-                    <li><MudLink Href="@item.Href" Underline="Underline.None" Class="home-row"><span class="home-row-title">@item.Title</span><span class="home-row-detail">@item.Detail</span></MudLink></li>
-                }
-            </ul>
-        </section>
+        <aside class="home-aside">
+            <section aria-labelledby="home-start">
+                <h2 class="home-group-title" id="home-start">Get Started</h2>
+                <ul class="home-list">
+                    @foreach (var step in Steps)
+                    {
+                        <li><MudLink Href="@step.Href" Underline="Underline.None" Class="home-row"><span class="home-row-title">@step.Title</span><span class="home-row-detail">@step.Detail</span></MudLink></li>
+                    }
+                </ul>
+            </section>
+            <section aria-labelledby="home-new">
+                <h2 class="home-group-title" id="home-new">What's New</h2>
+                <ul class="home-list">
+                    @foreach (var item in Shell.WhatsNew.Items)
+                    {
+                        <li><MudLink Href="@item.Href" Underline="Underline.None" Class="home-row"><span class="home-row-title">@item.Title</span><span class="home-row-detail">@item.Detail</span></MudLink></li>
+                    }
+                </ul>
+            </section>
+        </aside>
     </div>
 </MudContainer>
 

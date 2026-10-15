@@ -82,11 +82,19 @@
             el.style.height = 'auto';
             el.style.height = Math.min(el.scrollHeight, 160) + 'px';
         };
+        // "Running for 12s": the browser counts, so the panel is not redrawn every second
+        window.seneschalElapsed = function () {
+            document.querySelectorAll('.as-elapsed').forEach(function (el) {
+                var s = Math.max(0, Math.floor((Date.now() - Number(el.dataset.since)) / 1000));
+                el.textContent = s < 60 ? s + 's' : Math.floor(s / 60) + 'm ' + String(s % 60).padStart(2, '0') + 's';
+            });
+        };
+        setInterval(window.seneschalElapsed, 1000);
         window.seneschalFocus = function (id) {
             var el = document.getElementById(id);
             if (el) el.focus();
         };
-        window.seneschalComposer =function (inputId, sendId) {
+        window.seneschalComposer = function (inputId, host) {
             var el = document.getElementById(inputId);
             if (!el || el.dataset.ready) return;
             el.dataset.ready = '1';
@@ -94,8 +102,13 @@
             el.addEventListener('keydown', function (e) {
                 if (e.key !== 'Enter' || e.shiftKey || e.isComposing) return;
                 e.preventDefault();
-                var send = document.getElementById(sendId);
-                if (send) send.click();
+                var text = el.value;
+                if (!text.trim()) return;
+                host.invokeMethodAsync('Submit', text).then(function (taken) {
+                    if (!taken) return;
+                    el.value = '';
+                    window.seneschalFitInput(inputId);
+                });
             });
         };
     </script>

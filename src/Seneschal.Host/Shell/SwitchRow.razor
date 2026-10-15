@@ -1,0 +1,25 @@
+@* An on or off setting inside a dialog or a form: the pill switch, then the label with its one dim line under it, both in one text column so the
+   description always starts exactly where the label starts. Clicking the text toggles the switch. In a settings page use SettingCard instead. *@
+<div class="sw-row">
+    <MudSwitch T="bool" Value="Value" ValueChanged="ValueChanged" Color="Color.Primary" id="@Id" aria-label="@Label" />
+    <div class="sw-text" @onclick="() => ValueChanged.InvokeAsync(!Value)">
+        <span class="sw-label">@Label</span>
+        @if (!string.IsNullOrEmpty(Hint))
+        {
+            <span class="sw-hint">@Hint</span>
+        }
+    </div>
+</div>
+
+@code {
+    [Parameter, EditorRequired] public string Label { get; set; } = "";
+
+    /// <summary>One short dim line under the label. Optional: leave it out when the label says it all.</summary>
+    [Parameter] public string? Hint { get; set; }
+
+    [Parameter] public bool Value { get; set; }
+
+    [Parameter] public EventCallback<bool> ValueChanged { get; set; }
+
+    [Parameter] public string? Id { get; set; }
+}
