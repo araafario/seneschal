@@ -68,6 +68,21 @@ jobs:
             "$hash  $($_.Name)"
           } | Set-Content dist/SHA256SUMS.txt
 
+      - name: Check the zips
+        shell: pwsh
+        run: |
+          # A zip without the app, its launcher or the SDK would install and then not start, so stop before it is published
+          Add-Type -AssemblyName System.IO.Compression.FileSystem
+          foreach ($zip in Get-ChildItem dist -Filter *.zip) {
+            $archive = [IO.Compression.ZipFile]::OpenRead($zip.FullName)
+            $names = $archive.Entries | ForEach-Object FullName
+            $archive.Dispose()
+            foreach ($required in 'Seneschal.exe', 'SeneschalApp.exe', 'Seneschal.Sdk.dll', 'wwwroot/app.css') {
+              if ($names -notcontains $required) { throw "$($zip.Name) has no $required" }
+            }
+            Write-Host "$($zip.Name): $($names.Count) files, $([math]::Round($zip.Length / 1MB)) MB"
+          }
+
       - name: Create the release
         shell: pwsh
         env:

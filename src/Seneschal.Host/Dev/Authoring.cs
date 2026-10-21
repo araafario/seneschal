@@ -8,6 +8,7 @@ public sealed record ProjectInfo(string Name, string Folder, string Source, IRea
 
 /// <summary>An extension a project builds: its id, its title, and the ids of the tools it adds.</summary>
 public sealed record ProjectBuild(string Id, string Title, IReadOnlyList<string> Tools);
+
 /// <summary>
 /// What the assistant needs to make an extension without an editor: create the project, read and write its files, build it and load it.
 /// Projects live in a folder of the user's own, the same from source and installed: Options (Projects folder), or <c>SENESCHAL_EXTENSIONS_DIR</c>,

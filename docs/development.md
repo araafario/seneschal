@@ -63,7 +63,9 @@ Pushing releases nothing. On GitHub open **Actions**, **Release**, **Run workflo
 
 - Leave the version empty to get `version.txt` plus the run number (`1.0.37`), or type one (`1.2.0`, or `1.2.0-beta.1` for a pre-release).
 - The workflow builds for Windows x64 and arm64 with .NET included, tags the commit, and attaches the zips, `SHA256SUMS.txt`, `install.ps1` and `install.cmd` to a GitHub Release.
-- The **CI** workflow only builds, on every push and pull request.
+- Before it publishes anything it opens each zip and stops if the app, its launcher, the SDK or `wwwroot` is missing.
+- A release is made from the commit the workflow is started on, so commit and push what you want in it first.
+- The **CI** workflow builds, packs the SDK and checks the package, on every push and pull request. It publishes nothing.
 
 The app version is passed to the build as `-p:AppVersion=...` and shows in `seneschal version`. A build on a developer machine says `0.0.0-dev`. Change `version.txt` for a new major or minor. The SDK keeps its own version in its project file.
 

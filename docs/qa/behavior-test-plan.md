@@ -27,11 +27,13 @@ Tools: Playwright for pages, `curl`-style calls to `/mcp` for MCP, the `senescha
 
 ## 4. Appearance
 - Change a tool icon and a group icon, reset, persists across restart (`icons.json`)
+- Font: pick a font and *Other*, the text changes everywhere, the default is labeled, persists across restart
 - Default and Custom badges are right
 
-## 5. Projects (Developer)
+## 5. Extension Projects (Developer)
 - Section hidden without SDK or dev mode, shown with
-- New Project creates, shows, builds, loads live, tool appears
+- New Project creates, shows, builds, loads live, tool appears; with *Create a git repository* on it has a first commit, with it off it has no `.git`
+- Add Project: *Browse* opens the native folder picker (Windows), a folder with no project or a missing one is refused with a reason
 - Add Project of an existing folder, folder that does not exist yet, folder with no project
 - Build: success loads, compile error is shown with details and nothing breaks, build again after a fix replaces it
 - Live Reload off: a build is not loaded, on again: it is
@@ -43,8 +45,13 @@ Tools: Playwright for pages, `curl`-style calls to `/mcp` for MCP, the `senescha
 - Claude not found state offers Copy Config and Copy Command
 - With a fake `claude` that streams: message appears, tool call rows, result, stop button, error
 - Starter cards: first is always Help me create a new extension, others come from tools
-- Approval card: Allow and Deny both work, destructive variant, timeout counts as no, shows with the panel closed (launcher badge)
-- Question card: single answers on click, multiple needs Send, own answer, Skip, timeout
+- Approval card: Allow and Deny both work, destructive variant, no time limit, closing it counts as no, shows with the panel closed (launcher badge)
+- Question card: single answers on click, multiple needs Send, own answer, Skip
+- Question modes (Options, Assistant, Questions): wait for my answer, wait then use the recommended answer (countdown, *Recommended* tag, the assistant is told it was automatic), use the recommended answer at once
+- Panel position: floating and sidebar, width by drag is remembered, the page scrolls sideways in the middle when docked and narrow
+- Pictures: paste, drop, *Add image*, a fifth is refused with a note, remove with the ✕, a message of only pictures, history keeps small copies
+- Snip: the app's own window is captured with nothing to choose (`POST /assistant/snip` needs the `X-Seneschal` header and a local, same-origin request, and gives 204 when it cannot), the crop overlay keeps a selection or the whole window, the browser's capture is the fallback
+- Picture viewer: opens from the chat and from the tiles, fit and actual size, arrows and count for the pictures of one message, Esc and outside click close it and focus returns, a history chat shows the small copy with a note
 - History: list, open, delete, 30 limit
 - Model select persists
 - Long messages and code blocks wrap or scroll inside
@@ -60,7 +67,7 @@ Tools: Playwright for pages, `curl`-style calls to `/mcp` for MCP, the `senescha
 - `seneschal_ask_user` round trip
 
 ## 8. Assistant instructions
-- Edit and reset each of the five texts, change is used from the next message, default is not kept as a change
+- Edit and reset each of the five texts (a text edited by hand does not get new default steps, say so), change is used from the next message, default is not kept as a change
 - The prompt contains the date, address, installed tools, lessons
 
 ## 9. Authoring
@@ -79,5 +86,6 @@ Tools: Playwright for pages, `curl`-style calls to `/mcp` for MCP, the `senescha
 
 ## 12. Install and update
 - Install script parameters (`-NoDev`), update notice appears for a newer version (simulated feed), not run for real here
+- The uninstaller entry (Settings, Apps) and `uninstall.cmd` remove the app and leave the data folder, not run for real here
 
 Results are in the report (`docs/reports`).

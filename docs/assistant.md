@@ -30,6 +30,23 @@ Give it a picture to look at: paste one (Ctrl+V), drop it on the panel, press **
 **Snip the screen** captures Seneschal's own window right away, with nothing to choose, then shows it over the whole window so you drag the area you want. Enter keeps it, Esc cancels, and with nothing selected it keeps the whole window. Only the machine Seneschal runs on can do this; when it cannot, the browser's own capture dialog asks which screen, window or tab to take.
 
 Click a picture in the chat to see it large: click again for its own size, arrows move between the pictures of that message, Esc closes it. A chat opened from the history only has the small copy of each picture.
+
+## Where it sits
+
+The panel **floats** over the page by default. The **Panel position** button in its header switches it to a **sidebar** docked on the right: drag its left edge to change the width. A docked panel does not squeeze the page: the page keeps its width and scrolls sideways in the middle when the window is narrow. The choice and the width are remembered.
+
+## Questions
+
+When the assistant asks you to choose and you are not there, **Options, Assistant, Questions**, *When the assistant asks you*, decides what happens:
+
+| Setting | What it does |
+| --- | --- |
+| Wait for my answer | The card waits for you with no time limit (the default) |
+| Wait, then use the recommended answer | After the time set in *How long it waits*, the card is answered for you with the option marked *Recommended*. You can still answer before |
+| Use the recommended answer | The recommended option is chosen at once |
+
+A card that will answer itself shows *Recommended* on the option and a countdown, and the assistant is told the answer was automatic. Approvals never answer themselves: they wait, and closing the card counts as no.
+
 ## Safety
 
 | What it does | How it is treated |

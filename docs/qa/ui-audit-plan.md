@@ -20,14 +20,14 @@ Goal: every screen, dialog and state of Seneschal is checked against [What to av
 | 3 | Group page | with tools |
 | 4 | Tool pages (LoopUp: Logs, Token Generator, Projects; Text: Json Diff) | loading, empty, with data, error |
 | 5 | Options, Extensions | list, filter, no match, needs attention, row menu, import |
-| 6 | Options, Appearance | groups, icon picker, custom badge, reset |
-| 7 | Options, Assistant | Claude found, not found, model select, switch |
+| 6 | Options, Appearance | groups, icon picker, custom badge, font card (default, other), reset |
+| 7 | Options, Assistant | Claude found, not found, model select, switch, Questions group (three modes, seconds) |
 | 8 | Options, Instructions | five texts, edit dialog, reset |
 | 9 | Options, MCP | secret hidden and shown, reset confirm, client cards, approvals switch |
 | 10 | Options, MCP Tools | filter, groups open, no match |
 | 11 | Options, Extension Projects | live reload on and off, project open and closed, built and not built, empty |
-| 12 | Dialogs | Import extension, New Project, Add Project, Delete Project, icon picker, group icon, instruction editor, reset secret, remove build, delete extension, restart notice |
-| 13 | Assistant panel | empty, chat with tool calls, running, approval card, destructive approval card, question card (single, multiple, other), history, Claude not found, long text, settings gear |
+| 12 | Dialogs | Import extension, New Project (git option), Add Project (native picker), Delete Project, Delete Project, icon picker, group icon, instruction editor, reset secret, remove build, delete extension, restart notice |
+| 13 | Assistant panel | empty, chat with tool calls, running, approval card, destructive approval card, question card (single, multiple, other, recommended with countdown), pictures (tiles, message with pictures, history copy), snip overlay, picture viewer (fit, actual size, several, small copy), floating and sidebar position, history, Claude not found, long text, settings gear |
 | 14 | Tutorial page | all panels |
 | 15 | System | error page, not found page, reconnect modal, update notice, banners, toasts |
 | 16 | Extension pages (LoopUp) | all dialogs: Add Projects, Add Containers, Add Instances, Edit Project, Startup Plan, Process Log, Errors, Folder Browser |

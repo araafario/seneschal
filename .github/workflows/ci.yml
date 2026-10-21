@@ -21,3 +21,15 @@ jobs:
 
       - name: Pack the SDK
         run: dotnet pack src/Seneschal.Sdk -c Release -o sdk-package
+
+      - name: Check the package
+        shell: pwsh
+        run: |
+          # Without its build rules an extension cannot be staged or packed, which is the point of the package
+          Add-Type -AssemblyName System.IO.Compression.FileSystem
+          $archive = [IO.Compression.ZipFile]::OpenRead((Get-ChildItem sdk-package -Filter *.nupkg).FullName)
+          $names = $archive.Entries | ForEach-Object FullName
+          $archive.Dispose()
+          foreach ($required in 'build/Seneschal.Sdk.targets', 'lib/net10.0/Seneschal.Sdk.dll') {
+            if ($names -notcontains $required) { throw "The package has no $required" }
+          }
