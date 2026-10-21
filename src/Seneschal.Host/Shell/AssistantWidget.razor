@@ -30,7 +30,11 @@
 }
 else
 {
-    <section class="as-panel" id="as-panel" aria-label="Assistant" tabindex="-1" @onkeydown="OnPanelKey">
+    <section class="@($"as-panel {(Docked ? "is-sidebar" : "")}")" id="as-panel" aria-label="Assistant" tabindex="-1" @onkeydown="OnPanelKey">
+        @if (Docked)
+        {
+            <div class="as-resizer" id="as-resizer" role="separator" aria-orientation="vertical" aria-label="Resize the assistant" title="Drag to resize, double-click to reset" tabindex="0"></div>
+        }
         @if (_view == View.History)
         {
             <header class="as-head">
@@ -71,6 +75,10 @@ else
                     }
                 </MudMenu>
                 <span class="as-gap"></span>
+                <MudMenu Icon="@(Docked ? Icons.Material.Outlined.ViewSidebar : Icons.Material.Outlined.PictureInPictureAlt)" Color="Color.Inherit" Size="Size.Small" PopoverClass="as-menu" Dense="true" AnchorOrigin="Origin.BottomRight" TransformOrigin="Origin.TopRight" AriaLabel="Panel position" title="Panel position" id="as-dock-menu">
+                    <MudMenuItem OnClick="() => Settings.Dock = Floating" Icon="@Icons.Material.Outlined.PictureInPictureAlt"><span class="@(Docked ? "" : "as-model-on")">Floating</span></MudMenuItem>
+                    <MudMenuItem OnClick="() => Settings.Dock = Sidebar" Icon="@Icons.Material.Outlined.ViewSidebar"><span class="@(Docked ? "as-model-on" : "")">Sidebar</span></MudMenuItem>
+                </MudMenu>
                 <MudTooltip Text="History"><MudIconButton Icon="@Icons.Material.Outlined.History" Color="Color.Inherit" Size="Size.Small" OnClick="() => Show(View.History)" id="as-history-btn" aria-label="History" /></MudTooltip>
                 <MudTooltip Text="New chat"><MudIconButton Icon="@Icons.Material.Outlined.AddComment" Color="Color.Inherit" Size="Size.Small" OnClick="Reset" Disabled="@(Chat.Items.Count == 0)" id="as-new" aria-label="New chat" /></MudTooltip>
                 <MudTooltip Text="Settings"><MudIconButton Icon="@Icons.Material.Outlined.Settings" Color="Color.Inherit" Size="Size.Small" OnClick="OpenSettingsAsync" id="as-settings" aria-label="Settings" /></MudTooltip>
@@ -141,12 +149,37 @@ else
                             }
                         </div>
                     }
-                    @foreach (var item in Chat.Items)
+                    @foreach (var block in Blocks())
                     {
+                        @if (block.Tools is { } tools)
+                        {
+                            @* One tool call is a row; a run of them is one group, so many calls do not push the answer off the screen *@
+                            @(tools.Count == 1 ? ToolRow(tools[0], false) : ToolGroup(tools))
+                            continue;
+                        }
+                        var item = block.Item!;
                         @switch (item.Kind)
                         {
                             case ChatKind.User:
-                                <div class="as-row as-row-user"><div class="as-user">@item.Text</div></div>
+                                <div class="as-row as-row-user">
+                                    <div class="as-user">
+                                        @if (item.Images.Count > 0)
+                                        {
+                                            <div class="as-user-images">
+                                                @for (var i = 0; i < item.Images.Count; i++)
+                                                {
+                                                    var image = item.Images[i];
+                                                    <img class="as-user-image" src="@image.Thumb" alt="Attached image" tabindex="0" role="button" title="View image"
+                                                         data-group="@item.Id" data-full="@(image.Data is null ? null : $"/assistant/image/{item.Id}/{i}")" />
+                                                }
+                                            </div>
+                                        }
+                                        @if (item.Text.Length > 0)
+                                        {
+                                            <div class="as-user-text">@item.Text</div>
+                                        }
+                                    </div>
+                                </div>
                                 break;
                             case ChatKind.Assistant:
                                 if (item.Text.Length > 0)
@@ -155,32 +188,6 @@ else
                                         <div class="as-claude">@ChatMarkup.Render(item.Text)</div>
                                     </div>
                                 }
-                                break;
-                            case ChatKind.Tool:
-                                <details class="@($"as-tool {(item.IsError ? "as-tool-error" : "")}")" data-tool="@item.ToolName">
-                                    <summary>
-                                        @if (!item.Done)
-                                        {
-                                            <span class="as-dot"></span>
-                                        }
-                                        else
-                                        {
-                                            <MudIcon Icon="@(item.IsError ? Icons.Material.Outlined.ErrorOutline : Icons.Material.Outlined.Check)" Size="Size.Small" Class="as-tool-icon" />
-                                        }
-                                        <span class="as-tool-name">@Pretty(item.ToolName)</span>
-                                        <span class="as-tool-args">@Brief(item.Input)</span>
-                                    </summary>
-                                    @if (item.Input is not null)
-                                    {
-                                        <div class="as-tool-label">Input</div>
-                                        <pre class="as-tool-text">@item.Input</pre>
-                                    }
-                                    @if (item.Output is not null)
-                                    {
-                                        <div class="as-tool-label">Result</div>
-                                        <pre class="as-tool-text">@item.Output</pre>
-                                    }
-                                </details>
                                 break;
                             case ChatKind.Error:
                                 <div class="as-error"><MudIcon Icon="@Icons.Material.Outlined.ErrorOutline" Size="Size.Small" /><span>@item.Text</span></div>
@@ -195,12 +202,19 @@ else
 
                 @ApprovalCards
 
-                <div class="as-composer">
-                    <textarea id="as-input" class="as-input" rows="1" placeholder="Ask Seneschal anything" disabled="@(!CanSend && !Chat.Running)"></textarea>
-                    @if (Chat.Running)
-                    {
-                        <MudTooltip Text="Stop" Placement="Placement.Top"><MudIconButton Icon="@Icons.Material.Filled.Stop" Color="Color.Inherit" Class="sq-btn" OnClick="Chat.Stop" id="as-stop" aria-label="Stop" /></MudTooltip>
-                    }
+                @* The box: the pictures about to be sent (filled in by the browser), then the text and, at the right end, the two ways to add a picture (the text keeps the line of the messages above) *@
+                <div class="as-composer" id="as-composer">
+                    <div class="as-attach" id="as-attach" aria-live="polite"></div>
+                    <div class="as-composer-row">
+                        <textarea id="as-input" class="as-input" rows="1" placeholder="Ask Seneschal anything" disabled="@(!CanSend && !Chat.Running)"></textarea>
+                        <MudTooltip Text="Add image" Placement="Placement.Top"><button type="button" class="as-tool-btn" id="as-attach-btn" aria-label="Add image" disabled="@(!CanSend)"><MudIcon Icon="@Icons.Material.Outlined.AddPhotoAlternate" /></button></MudTooltip>
+                        <MudTooltip Text="Snip the screen" Placement="Placement.Top"><button type="button" class="as-tool-btn" id="as-snip-btn" aria-label="Snip the screen" disabled="@(!CanSend)"><MudIcon Icon="@Icons.Material.Outlined.ContentCut" /></button></MudTooltip>
+                        @if (Chat.Running)
+                        {
+                            <MudTooltip Text="Stop" Placement="Placement.Top"><MudIconButton Icon="@Icons.Material.Filled.Stop" Color="Color.Inherit" Class="sq-btn" OnClick="Chat.Stop" id="as-stop" aria-label="Stop" /></MudTooltip>
+                        }
+                    </div>
+                    <input type="file" id="as-file" accept="image/png,image/jpeg,image/webp,image/gif" multiple hidden />
                 </div>
             }
         }
@@ -227,12 +241,17 @@ else
                         <button type="button" class="@($"as-option {(on ? "is-on" : "")}")" role="@(question.Multiple ? "checkbox" : "radio")" aria-checked="@(on ? "true" : "false")" @onclick="() => Pick(question, label)">
                             <span class="@($"as-option-mark {(question.Multiple ? "is-multi" : "")}")">@if (on) { <MudIcon Icon="@Icons.Material.Filled.Check" /> }</span>
                             <span class="as-option-text">
-                                <span class="as-option-label">@label</span>
+                                <span class="as-option-label">@label@if (option.Recommended) { <span class="as-option-rec">Recommended</span> }</span>
                                 @if (!string.IsNullOrEmpty(option.Description)) { <span class="as-option-desc">@option.Description</span> }
                             </span>
                         </button>
                     }
                 </div>
+                @if (question.AutoAt is { } autoAt)
+                {
+                    @* Seneschal picks the recommended option when the time is up; the person can answer first. The seconds are counted in the browser. *@
+                    <div class="as-auto" id="as-auto">Picks <b>@string.Join(", ", question.RecommendedLabels)</b> in <span class="as-countdown" data-until="@autoAt.ToUnixTimeMilliseconds()">@Remaining(autoAt)</span></div>
+                }
                 @if (question.AllowOther)
                 {
                     <input type="text" class="as-other" placeholder="Or write your own" aria-label="Your own answer" value="@Other(id)" @oninput="e => _other[id] = e.Value?.ToString() ?? string.Empty"
@@ -324,6 +343,13 @@ else
     // Typing stays in the browser: the text goes to the server only when Enter is pressed, so a keystroke redraws nothing
     private DotNetObjectReference<AssistantWidget>? _self;
     private bool _open;
+
+    private const string Floating = "floating";
+    private const string Sidebar = "sidebar";
+
+    private int _appliedWidth = -1;
+
+    private bool Docked => Settings.Dock == Sidebar;
     private bool _ready;
     private bool _wire;
     private bool _framed;
@@ -388,6 +414,16 @@ else
         if (!_open) return;
         try
         {
+            if (Docked)
+            {
+                // The panel's width is a setting of the page, so the page beside it follows while it is dragged
+                if (_appliedWidth != Settings.DockWidth)
+                {
+                    _appliedWidth = Settings.DockWidth;
+                    await JS.InvokeVoidAsync("seneschalDockWidth", _appliedWidth);
+                }
+                await JS.InvokeVoidAsync("seneschalDockResize", "as-resizer", _self);
+            }
             if (_framed)
             {
                 // The frame is on screen: now do the slow part (looking for Claude, listing the tools) and fill it in
@@ -451,18 +487,28 @@ else
         }
     }
 
-    private async Task SendAsync(string text)
+    private async Task SendAsync(string text, IReadOnlyList<ChatImage>? images = null)
     {
-        if (!CanSend || string.IsNullOrWhiteSpace(text)) return;
-        await Chat.SendAsync(text);
+        if (!CanSend || (string.IsNullOrWhiteSpace(text) && images is not { Count: > 0 })) return;
+        await Chat.SendAsync(text, images);
+    }
+
+    /// <summary>Called by the browser when the docked panel has been dragged to a new width (0 is the default again).</summary>
+    [JSInvokable]
+    public void SaveDockWidth(int width)
+    {
+        _appliedWidth = width is >= 320 and <= 900 ? width : 0;
+        Settings.DockWidth = _appliedWidth;
     }
 
     /// <summary>Called by the browser when Enter is pressed in the composer. True when the message was taken, so the box can be emptied.</summary>
     [JSInvokable]
-    public async Task<bool> Submit(string text)
+    public async Task<bool> Submit(string text, ChatImageIn[]? images)
     {
-        if (!CanSend || string.IsNullOrWhiteSpace(text)) return false;
-        _ = SendAsync(text);
+        // The pictures are checked again here: only known types, a limited number, a limited size
+        var attached = ChatImage.From(images);
+        if (!CanSend || (string.IsNullOrWhiteSpace(text) && attached.Count == 0)) return false;
+        _ = SendAsync(text ?? "", attached);
         return true;
     }
 
@@ -475,6 +521,99 @@ else
     }
 
     /// <summary>"projects_start" is shown as "Projects Start".</summary>
+    /// <summary>A line of the conversation, or a run of tool calls that follow each other (no text between them).</summary>
+    private sealed record Block(ChatItem? Item, List<ChatItem>? Tools);
+
+    private List<Block> Blocks()
+    {
+        var blocks = new List<Block>();
+        foreach (var item in Chat.Items)
+        {
+            if (item.Kind == ChatKind.Tool && blocks.Count > 0 && blocks[^1].Tools is { } run) run.Add(item);
+            else if (item.Kind == ChatKind.Tool) blocks.Add(new Block(null, [item]));
+            else if (item.Kind == ChatKind.Assistant && item.Text.Length == 0) continue; // an empty line of text does not split a run
+            else blocks.Add(new Block(item, null));
+        }
+        return blocks;
+    }
+
+    /// <summary>The name of one of Seneschal's own tools without the word Seneschal, which every one of them starts with.</summary>
+    private static string ToolTitle(string? name)
+    {
+        var trimmed = (name ?? "");
+        foreach (var prefix in new[] { "mcp__seneschal__", "seneschal_" })
+            if (trimmed.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)) { trimmed = trimmed[prefix.Length..]; break; }
+        return Pretty(trimmed);
+    }
+
+    /// <summary>One tool call: a line that opens to its input and result. Inside a group the line is compact.</summary>
+    private RenderFragment ToolRow(ChatItem item, bool compact) => @<details class="@($"as-tool {(compact ? "as-tool-compact" : "")} {(item.IsError ? "as-tool-error" : "")}")" data-tool="@item.ToolName">
+        <summary>
+            @if (!item.Done)
+            {
+                <span class="as-dot"></span>
+            }
+            else
+            {
+                <MudIcon Icon="@(item.IsError ? Icons.Material.Outlined.ErrorOutline : Icons.Material.Outlined.Check)" Size="Size.Small" Class="as-tool-icon" />
+            }
+            <span class="as-tool-name">@ToolTitle(item.ToolName)</span>
+            <span class="as-tool-args">@Brief(item.Input)</span>
+        </summary>
+        @if (item.Input is not null)
+        {
+            <div class="as-tool-label">Input</div>
+            <pre class="as-tool-text">@item.Input</pre>
+        }
+        @if (item.Output is not null)
+        {
+            <div class="as-tool-label">Result</div>
+            <pre class="as-tool-text">@item.Output</pre>
+        }
+    </details>;
+
+    /// <summary>
+    /// Two or more calls in a row as one closed line. While they run it says which one is running; when they are done, how many there were. A failure
+    /// shows on the closed line, so it is never hidden inside. The person opens it to see the calls, and it stays as they left it.
+    /// </summary>
+    private RenderFragment ToolGroup(List<ChatItem> tools)
+    {
+        var running = tools.Any(t => !t.Done);
+        var failed = tools.Count(t => t.IsError);
+        var current = tools.LastOrDefault(t => !t.Done) ?? tools[^1];
+        return @<details @key="tools[0].Id" class="@($"as-tool as-group {(failed > 0 && !running ? "as-group-bad" : "")}")" data-group="@tools[0].Id">
+            <summary>
+                @if (running)
+                {
+                    <span class="as-dot"></span>
+                    <span class="as-tool-name">Running @ToolTitle(current.ToolName)</span>
+                    <span class="as-tool-args">@Brief(current.Input)</span>
+                }
+                else
+                {
+                    <MudIcon Icon="@(failed > 0 ? Icons.Material.Outlined.ErrorOutline : Icons.Material.Outlined.Check)" Size="Size.Small" Class="as-tool-icon" />
+                    <span class="as-tool-name">Used @tools.Count tools</span>
+                    @if (failed > 0)
+                    {
+                        <span class="as-group-failed">@failed failed</span>
+                    }
+                }
+                <MudIcon Icon="@Icons.Material.Outlined.ExpandMore" Size="Size.Small" Class="as-group-chevron" />
+            </summary>
+            <div class="as-group-list">
+                @foreach (var tool in tools)
+                {
+                    @ToolRow(tool, true)
+                }
+            </div>
+        </details>;
+    }
+    private static string Remaining(DateTimeOffset at)
+    {
+        var seconds = Math.Max(0, (int)Math.Ceiling((at - DateTimeOffset.Now).TotalSeconds));
+        return seconds < 60 ? $"{seconds}s" : $"{seconds / 60}m {seconds % 60:00}s";
+    }
+
     private static string Pretty(string? name) =>
         string.Join(' ', (name ?? "").Split('_', StringSplitOptions.RemoveEmptyEntries).Select(w => char.ToUpperInvariant(w[0]) + w[1..]));
 

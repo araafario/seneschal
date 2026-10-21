@@ -14,7 +14,6 @@
             <div class="nav-group" id="nav-favorites">
                 <div class="nav-group-row">
                     <MudNavLink Href="@GroupSlug.FavoritesHref" Icon="@Icons.Material.Outlined.StarBorder">Favorites</MudNavLink>
-                    <span class="group-count" aria-hidden="true">@FavoriteTools.Count</span>
                     <button type="button" class="@($"group-chevron {(IsOpen(FavoritesKey) ? "open" : "")}")"
                             aria-label="Toggle Favorites" aria-expanded="@(IsOpen(FavoritesKey) ? "true" : "false")" @onclick="() => Toggle(FavoritesKey)">
                         <MudIcon Icon="@Icons.Material.Outlined.ChevronLeft" />
@@ -47,7 +46,6 @@
             <div class="nav-group">
                 <div class="nav-group-row">
                     <MudNavLink Href="@href" Icon="@icon" title="@name">@name</MudNavLink>
-                    <span class="group-count" aria-hidden="true">@group.Count()</span>
                     <button type="button" class="@($"group-chevron {(IsOpen(name) ? "open" : "")}")"
                             aria-label="@($"Toggle {name}")" aria-expanded="@(IsOpen(name) ? "true" : "false")" @onclick="() => Toggle(name)">
                         <MudIcon Icon="@Icons.Material.Outlined.ChevronLeft" />

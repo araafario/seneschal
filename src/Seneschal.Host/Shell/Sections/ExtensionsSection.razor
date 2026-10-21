@@ -14,7 +14,7 @@
     <SelectedTemplate></SelectedTemplate>
 </MudFileUpload>
 
-<OptionHeader Title="Extensions" Description="The tools you have installed. Turn one off to hide it, or import one you were given">
+<OptionHeader Title="Extensions" Description="What you have installed and the tools each one adds. Import one you were given">
     <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Outlined.Upload" id="import-dll"
                OnClick="() => _upload!.OpenFilePickerAsync()">Import</MudButton>
 </OptionHeader>
@@ -54,10 +54,10 @@
     </div>
 }
 
-@if (Registry.All.Count() > FilterFrom)
+@if (Registry.Installed.Count > FilterFrom)
 {
 <div class="ext-toolbar">
-    <MudTextField T="string" @bind-Value="_query" Immediate="true" Placeholder="Filter extensions" aria-label="Filter extensions"
+    <MudTextField T="string" @bind-Value="_query" Immediate="true" Placeholder="Filter extensions and tools" aria-label="Filter extensions and tools"
                   Variant="Variant.Outlined" Margin="Margin.Dense" Class="ext-search"
                   Adornment="Adornment.End" AdornmentIcon="@Icons.Material.Outlined.Search" />
     <div class="ext-filters">
@@ -70,56 +70,71 @@
 </div>
 }
 
-@foreach (var group in VisibleGroups)
+@* An extension is what you install and remove, so each one is a card of its own with the tools it adds inside it. The tools carry the on/off switch;
+   removing the extension removes all of them, and the confirmation says so. The sidebar groups are a different thing and are not shown here. *@
+<div class="opt-stack">
+@foreach (var (ext, tools) in VisibleExtensions)
 {
-    var name = group.Key;
-    <h3 class="opt-group opt-group-icon"><MudIcon Icon="@GroupIconService.Get(name)" />@name</h3>
+    <SettingExpander Key="@($"ext:{ext.Name}")" Icon="@Icons.Material.Outlined.Extension" Title="@ext.Title" Description="@ToolCount(ext.ToolIds.Length)"
+                     Open="@(Dlls.Loaded.Count <= OpenUpTo || _query.Trim().Length > 0)" Class="ext-card">
+        <Badge>@if (SourceText(ext.Origin) is { } source) { <span class="sc-badge">@source</span> }</Badge>
+        <Control>
+            <MudMenu Icon="@Icons.Material.Outlined.MoreVert" Class="sq-btn" AriaLabel="@($"More actions for {ext.Title}")" Dense="true">
+                <MudMenuItem Disabled="true">Version @ext.Version</MudMenuItem>
+                <MudMenuItem OnClick="() => Reveal(ext.Name)">Reveal in folder</MudMenuItem>
+                @if (ext.Origin == ExtensionSource.Installed)
+                {
+                    <MudMenuItem OnClick="() => RemoveAsync(ext.Name)">Remove</MudMenuItem>
+                }
+                else if (ext.Origin == ExtensionSource.Dev)
+                {
+                    @* A dev build is output of the developer's own build: removing it deletes that folder, and the next build brings it back *@
+                    <MudMenuItem OnClick="() => RemoveBuildAsync(ext.Name)">Remove Build</MudMenuItem>
+                }
+                else
+                {
+                    @* Part of this copy of the app: it cannot be removed from here, and the menu says why *@
+                    <MudMenuItem Disabled="true">Part of this copy of the app</MudMenuItem>
+                }
+            </MudMenu>
+        </Control>
+        <ChildContent>
+            @foreach (var tool in tools)
+            {
+                var enabled = Extensions.IsEnabled(tool.Id);
+                <SettingCard Nested="true" Key="@($"tool:{tool.Id}")" Icon="@GroupIconService.Tool(tool)" Title="@tool.Title" Description="@tool.Description" Muted="@(!enabled)">
+                    <Control>
+                        <MudSwitch T="bool" Value="enabled" ValueChanged="v => Extensions.SetEnabled(tool.Id, v)" Color="Color.Primary" aria-label="@($"{tool.Title} on")" />
+                    </Control>
+                </SettingCard>
+            }
+        </ChildContent>
+    </SettingExpander>
+}
+</div>
+
+@if (LooseTools.Count > 0)
+{
+    @* Tools that are not in an extension of their own: part of the app itself *@
+    <h3 class="opt-group">Built-in</h3>
     <div class="opt-stack">
-        @foreach (var tool in group)
+        @foreach (var tool in LooseTools)
         {
             var enabled = Extensions.IsEnabled(tool.Id);
-            var info = Registry.Info(tool.Id);
-            var installed = info?.Source == ExtensionSource.Installed;
             <SettingCard Key="@($"tool:{tool.Id}")" Icon="@GroupIconService.Tool(tool)" Title="@tool.Title" Description="@tool.Description" Muted="@(!enabled)">
-                <Badge>@if (SourceText(info) is { } source) { <span class="sc-badge">@source</span> }</Badge>
                 <Control>
                     <MudSwitch T="bool" Value="enabled" ValueChanged="v => Extensions.SetEnabled(tool.Id, v)" Color="Color.Primary" aria-label="@($"{tool.Title} on")" />
-                    @if (info is { Package: not null })
-                    {
-                        <MudMenu Icon="@Icons.Material.Outlined.MoreVert" Class="sq-btn" AriaLabel="More actions" Dense="true">
-                            <MudMenuItem Disabled="true">Version @info.Version</MudMenuItem>
-                            <MudMenuItem OnClick="() => Reveal(info!.Package!)">Reveal in folder</MudMenuItem>
-                            @if (installed)
-                            {
-                                <MudMenuItem OnClick="() => RemoveAsync(info!.Package!)">Remove</MudMenuItem>
-                            }
-                            else if (info.Source == ExtensionSource.Dev)
-                            {
-                                @* A dev build is output of the developer's own build: removing it deletes that folder, and the next build brings it back *@
-                                <MudMenuItem OnClick="() => RemoveBuildAsync(info!.Package!)">Remove Build</MudMenuItem>
-                            }
-                            else
-                            {
-                                @* Part of this copy of the app: it cannot be removed from here, and the menu says why *@
-                                <MudMenuItem Disabled="true">Part of this copy of the app</MudMenuItem>
-                            }
-                        </MudMenu>
-                    }
-                    else
-                    {
-                        <span class="sc-control-spacer"></span>
-                    }
+                    <span class="sc-control-spacer"></span>
                 </Control>
             </SettingCard>
         }
     </div>
 }
 
-@if (!VisibleGroups.Any())
+@if (!VisibleExtensions.Any() && LooseTools.Count == 0)
 {
-    <div class="opt-empty">@(Registry.All.Any() ? "No match" : "No extensions yet. Import one, or ask the assistant to make one")</div>
+    <div class="opt-empty">@(Registry.Installed.Any() ? "No match" : "No extensions yet. Import one, or ask the assistant to make one")</div>
 }
-
 <MudLink Href="/options/extensions/tutorial" Underline="Underline.Hover" Color="Color.Inherit" Class="ext-footer">
     Create an extension <MudIcon Icon="@Icons.Material.Outlined.ArrowForward" Size="Size.Small" />
 </MudLink>
@@ -130,44 +145,93 @@
     /// <summary>The filter and its chips only help once the list is long enough to need them.</summary>
     private const int FilterFrom = 5;
 
-    /// <summary>Where a tool comes from, only when it is not the usual case: an imported extension is the default and says nothing.</summary>
-    private static string? SourceText(ExtensionInfo? info) => info switch
+    /// <summary>Up to this many extensions start open, so their tools are in view. With more, they start closed.</summary>
+    private const int OpenUpTo = 3;
+
+    /// <summary>Where an extension comes from, only when it is not the usual case: an imported extension is the default and says nothing.</summary>
+    private static string? SourceText(ExtensionSource origin) => origin switch
     {
-        { Source: ExtensionSource.Installed } => null,
-        { Source: ExtensionSource.Dev } => "Dev",
+        ExtensionSource.Installed => null,
+        ExtensionSource.Dev => "Dev",
         _ => "Built-in",
     };
+
+    private static string ToolCount(int n) => n == 1 ? "1 tool" : $"{n} tools";
 
     private MudFileUpload<IBrowserFile>? _upload;
     private string _query = "";
     private string _filter = "All";
 
-    private IEnumerable<IGrouping<string, ToolMetadata>> VisibleGroups =>
-        Registry.InstalledGroups
-            .Select(g => (g.Key, Tools: g.Where(Matches).ToList()))
-            .Where(g => g.Tools.Count > 0)
-            .Select(g => g.Tools.GroupBy(_ => g.Key).First())
-            .ToList();
-
-    private bool Matches(ToolMetadata tool)
+    /// <summary>The extensions that match the filter, each with the tools to show in it (all of them, or only the ones that match what was typed).</summary>
+    private IEnumerable<(DllExtension Ext, List<ToolMetadata> Tools)> VisibleExtensions
     {
-        var installed = Registry.Info(tool.Id)?.Source == ExtensionSource.Installed;
+        get
+        {
+            var byId = Registry.Installed.ToDictionary(t => t.Id);
+            foreach (var ext in Dlls.Loaded.OrderBy(e => e.Title, StringComparer.OrdinalIgnoreCase))
+            {
+                var all = ext.ToolIds.Select(id => byId.GetValueOrDefault(id)).OfType<ToolMetadata>().OrderBy(t => t.Title, StringComparer.OrdinalIgnoreCase).ToList();
+                if (!MatchesExtension(ext, all)) continue;
+                var q = _query.Trim();
+                var shown = q.Length == 0 || ext.Title.Contains(q, StringComparison.OrdinalIgnoreCase) ? all : all.Where(t => MatchesText(t, q)).ToList();
+                if (_filter == "Disabled") shown = shown.Where(t => !Extensions.IsEnabled(t.Id)).ToList();
+                if (shown.Count > 0 || all.Count == 0) yield return (ext, shown);
+            }
+        }
+    }
+
+    /// <summary>Tools that no extension of this list owns (part of the app itself).</summary>
+    private List<ToolMetadata> LooseTools
+    {
+        get
+        {
+            var owned = Dlls.Loaded.SelectMany(e => e.ToolIds).ToHashSet();
+            return [.. Registry.Installed.Where(t => !owned.Contains(t.Id) && MatchesTool(t))];
+        }
+    }
+
+    private bool MatchesExtension(DllExtension ext, List<ToolMetadata> tools)
+    {
+        var installed = ext.Origin == ExtensionSource.Installed;
         var byFilter = _filter switch
         {
             "Built-in" => !installed,
             "Installed" => installed,
-            "Disabled" => !Extensions.IsEnabled(tool.Id),
+            "Disabled" => tools.Any(t => !Extensions.IsEnabled(t.Id)),
             _ => true,
         };
         if (!byFilter) return false;
 
         var q = _query.Trim();
-        return q.Length == 0
-            || tool.Title.Contains(q, StringComparison.OrdinalIgnoreCase)
-            || tool.Description.Contains(q, StringComparison.OrdinalIgnoreCase)
-            || tool.Group.Contains(q, StringComparison.OrdinalIgnoreCase);
+        return q.Length == 0 || ext.Title.Contains(q, StringComparison.OrdinalIgnoreCase) || tools.Any(t => MatchesText(t, q));
     }
 
+    private bool MatchesTool(ToolMetadata tool)
+    {
+        var byFilter = _filter switch
+        {
+            "Installed" => false,
+            "Disabled" => !Extensions.IsEnabled(tool.Id),
+            _ => true,
+        };
+        return byFilter && MatchesText(tool, _query.Trim());
+    }
+
+    private static bool MatchesText(ToolMetadata tool, string q) =>
+        q.Length == 0
+        || tool.Title.Contains(q, StringComparison.OrdinalIgnoreCase)
+        || tool.Description.Contains(q, StringComparison.OrdinalIgnoreCase)
+        || tool.Group.Contains(q, StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>What removing an extension takes with it: its title and its tools, for the confirmation.</summary>
+    private (string Title, string Tools) Takes(string package)
+    {
+        var ext = Dlls.Loaded.FirstOrDefault(e => e.Name == package);
+        if (ext is null) return (package, "");
+        var byId = Registry.Installed.ToDictionary(t => t.Id);
+        var titles = ext.ToolIds.Select(id => byId.GetValueOrDefault(id)?.Title ?? id).Order(StringComparer.OrdinalIgnoreCase).ToList();
+        return (ext.Title, titles.Count == 0 ? "" : $"It removes {ToolCount(titles.Count)}: {string.Join(", ", titles)}. ");
+    }
     protected override void OnInitialized()
     {
         GroupIconService.Changed += OnChanged;
@@ -212,8 +276,9 @@
 
     private async Task RemoveAsync(string package)
     {
+        var (title, tools) = Takes(package);
         var confirmed = await Dialogs.ShowMessageBoxAsync("Remove Extension",
-            $"Remove {package}? You can import it again",
+            $"Remove {title}? {tools}You can import it again",
             yesText: "Remove", cancelText: "Cancel");
         if (confirmed == true)
             Report(Dlls.Remove(package));
@@ -221,8 +286,9 @@
 
     private async Task RemoveBuildAsync(string package)
     {
+        var (title, tools) = Takes(package);
         var confirmed = await Dialogs.ShowMessageBoxAsync("Remove Build",
-            $"Delete the build of {package}? Build it again to get it back",
+            $"Delete the build of {title}? {tools}Build it again to get it back",
             yesText: "Remove", cancelText: "Cancel");
         if (confirmed == true)
             Report(Dlls.RemoveDevBuild(package));

@@ -24,7 +24,9 @@ builder.WebHost.UseStaticWebAssets();
 builder.Services.Configure<HostOptions>(options => options.ShutdownTimeout = TimeSpan.FromSeconds(5));
 
 builder.Services.AddRazorComponents()
-    .AddInteractiveServerComponents();
+    .AddInteractiveServerComponents()
+    // A message with pictures in it (up to four, scaled down by the browser) is far larger than the default 32 KB
+    .AddHubOptions(options => options.MaximumReceiveMessageSize = 24 * 1024 * 1024);
 builder.Services.AddMudServices(config =>
 {
     // Toasts: bottom right, gone after a few seconds, with a close button. An error asks to be dismissed (see the pages).
@@ -98,6 +100,7 @@ app.MapPost(McpServer.Path, async (HttpContext http, McpServer mcp) =>
 }).DisableAntiforgery();
 app.MapGet(McpServer.Path, () => Results.StatusCode(StatusCodes.Status405MethodNotAllowed));
 
+Seneschal.AssistantEndpoints.Map(app);
 Seneschal.Cli.EngineMode.Map(app);
 
 app.MapRazorComponents<App>()

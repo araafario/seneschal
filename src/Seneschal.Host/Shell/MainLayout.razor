@@ -4,7 +4,7 @@
 
 <MudThemeProvider Theme="_theme" IsDarkMode="_dark" />
 
-<MudLayout Class="@(_dark ? "app-dark" : "app-light")">
+<MudLayout Class="@(_dark ? "app-dark" : "app-light")" Style="@($"--font-ui: {CssFont}")">
     @* The popups sit inside the themed layout so that dialogs and menus get the same colors (the --accent, --card, --border variables) *@
     <MudPopoverProvider />
     <MudDialogProvider CloseOnEscapeKey="true" />
@@ -28,14 +28,17 @@
             <NavMenu Expanded="_expanded" />
         </div>
         <MudNavMenu Class="app-nav drawer-footer">
-            <MudDivider Class="my-1" />
+            <MudDivider />
             <MudNavLink Href="/options" Icon="@Icons.Material.Outlined.Tune" title="Options">Options</MudNavLink>
         </MudNavMenu>
     </MudDrawer>
     <MudMainContent Class="@($"app-main {(_expanded ? "" : "is-mini")}")">
-        <UpdateNotice />
-        @Body
-        <ToolSurface />
+        @* One box around the page: it is what keeps its width (and the glow behind Home its size) when the assistant is docked beside it *@
+        <div class="app-main-inner">
+            <UpdateNotice />
+            @Body
+            <ToolSurface />
+        </div>
     </MudMainContent>
     <AssistantWidget />
 </MudLayout>
@@ -54,6 +57,7 @@
     {
         _expanded = Settings.SidebarExpanded;
         _dark = Settings.DarkMode;
+        _theme = BuildTheme(Settings.FontStack);
         // A page opened with ?theme=light or ?theme=dark (by the headless browser that looks at a page) shows that theme and keeps the saved choice
         var themed = System.Web.HttpUtility.ParseQueryString(new Uri(Nav.Uri).Query)["theme"];
         if (string.Equals(themed, "light", StringComparison.OrdinalIgnoreCase)) _dark = false;
@@ -75,6 +79,7 @@
     {
         _dark = Settings.DarkMode;
         _expanded = Settings.SidebarExpanded;
+        _theme = BuildTheme(Settings.FontStack);
         StateHasChanged();
     });
 
@@ -158,7 +163,12 @@
         Settings.DarkMode = dark;
     }
 
-    private readonly MudTheme _theme = new()
+    private MudTheme _theme = BuildTheme(UiSettings.DefaultFontStack);
+
+    /// <summary>The font stack as a CSS value: names in quotes, the generic ones (system-ui, sans-serif) as they are.</summary>
+    private string CssFont => string.Join(", ", Settings.FontStack.Select(f => f is "system-ui" or "sans-serif" ? f : $"'{f}'"));
+
+    private static MudTheme BuildTheme(string[] Font) => new()
     {
         PaletteDark = new PaletteDark
         {
@@ -209,5 +219,4 @@
         },
     };
 
-    private static readonly string[] Font = ["Segoe UI Variable", "Segoe UI", "system-ui", "sans-serif"];
 }

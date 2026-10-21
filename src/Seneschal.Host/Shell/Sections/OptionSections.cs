@@ -17,7 +17,7 @@ public static class OptionSections
         new("instructions", "Instructions", "AI", Icons.Material.Outlined.EditNote, typeof(InstructionsSection)),
         new("mcp", "MCP", "AI", Icons.Material.Outlined.Hub, typeof(McpSection)),
         new("mcp-tools", "MCP Tools", "AI", Icons.Material.Outlined.Handyman, typeof(McpToolsSection)),
-        new("projects", "Projects", "Developer", Icons.Material.Outlined.Code, typeof(ProjectsSection), Developer: true),
+        new("projects", "Extension Projects", "Developer", Icons.Material.Outlined.Code, typeof(ProjectsSection), Developer: true),
     ];
 
     public static IReadOnlyList<OptionSection> Visible(bool developer) => [.. All.Where(s => developer || !s.Developer)];

@@ -25,7 +25,7 @@ Goal: every screen, dialog and state of Seneschal is checked against [What to av
 | 8 | Options, Instructions | five texts, edit dialog, reset |
 | 9 | Options, MCP | secret hidden and shown, reset confirm, client cards, approvals switch |
 | 10 | Options, MCP Tools | filter, groups open, no match |
-| 11 | Options, Projects | live reload on and off, project open and closed, built and not built, empty |
+| 11 | Options, Extension Projects | live reload on and off, project open and closed, built and not built, empty |
 | 12 | Dialogs | Import extension, New Project, Add Project, Delete Project, icon picker, group icon, instruction editor, reset secret, remove build, delete extension, restart notice |
 | 13 | Assistant panel | empty, chat with tool calls, running, approval card, destructive approval card, question card (single, multiple, other), history, Claude not found, long text, settings gear |
 | 14 | Tutorial page | all panels |

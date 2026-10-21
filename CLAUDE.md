@@ -17,7 +17,7 @@ Tools live in their own repositories as packages (`.snx`) built against the `Sen
 - Loading: draw the frame first and the slow part after it, show skeletons and bars instead of blank gaps, never do slow work (disk, PATH, processes) on every redraw. The assistant panel has its own rules in the guideline.
 - 4px grid, radius 6 for cards and 4 for controls, colors only from the theme variables in `app.css`. Sizes come from the density scale at the top of `app.css` (`--fs-*`, `--h-ctl`, `--gap-*`) and the theme typography, never from a number written in a component.
 - Check every UI change in **dark and light** mode, and handle empty, loading, busy and error states.
-- Host components (`PageShell`, `Banner`) are not available to extensions: use `MudAlert` and the shared CSS classes.
+- Host components (`PageShell`, `Banner`) are not available to extensions: use the shared CSS classes (a banner is `.banner` with `.banner-icon`, `.banner-text`, `.banner-actions`), and `MudAlert` only for a plain message with no action.
 - Reuse before writing: `ToolGrid`/`ToolCard`, `SettingCard`, `PageShell` and the layout tokens in `app.css` (`--w-home`, `--card-min`, `--fab-clear`). A new visual pattern needs a one-sentence reason. Nothing in the frame names a particular extension.
 - Design for any amount of content: one tool or a hundred, a long title, an empty list. No fixed widths a card has to fit, and the sidebar must stay short with many tools.
 - Hierarchy: one thing is the main thing on a page. Hover is a tint, keyboard focus is the accent ring, hover-only things also show on focus.
@@ -33,7 +33,7 @@ Tools live in their own repositories as packages (`.snx`) built against the `Sen
 
 ```
 src/Seneschal.Sdk/        what an extension compiles against
-src/Seneschal.Host/       the app: shell, Options (with Projects for extension makers), loader
+src/Seneschal.Host/       the app: shell, Options (with Extension Projects for extension makers), loader
 src/Seneschal.Launcher/   SeneschalApp.exe: what the shortcuts start (no console window)
 extensions/                Nothing ships here and nothing new is made here. Projects made in Options or by the assistant live in Documents/Seneschal/Projects
 docs/                     ui-guidelines.md
@@ -48,15 +48,16 @@ artifacts/                build output only
 dotnet build Seneschal.slnx    # build everything
 ```
 
-- A running Seneschal locks `Seneschal.exe` and the staged extension files. Stop it before a full build. To avoid the lock, run it from a copy: `.\dev.ps1 -Attached -Copy`, or the **Seneschal (copy)** profile in Visual Studio. It runs `artifacts/run`, so a rebuild never fails while the app runs.
+- A running Seneschal locks `Seneschal.exe` and the staged extension files. Stop it before a full build. To develop without that, run it with hot reload: `.\dev.ps1 -Watch`, or the **Seneschal (hot reload)** profile in Visual Studio (the first one, so F5 runs it). Razor, CSS and most C# edits apply without a restart.
 - Every extension loads live, with or without services: each has a container of its own that is replaced when it is rebuilt, imported or removed. No app restart.
 
 ## Working safely
 
-- **Test destructive or repo-changing features on a copy of the repo**, never the real one. That means Options, Projects (create, delete), anything that moves folders, and edits to `Seneschal.slnx` or `Seneschal.Host.csproj`. Run the copy of the app on its own port with `SENESCHAL_DATA_DIR` set to a scratch folder.
+- **Test destructive or repo-changing features on a copy of the repo**, never the real one. That means Options, Extension Projects (create, delete), anything that moves folders, and edits to `Seneschal.slnx` or `Seneschal.Host.csproj`. Run the copy of the app on its own port with `SENESCHAL_DATA_DIR` set to a scratch folder.
 - Use throwaway containers and throwaway apps for runner tests. Never start, stop or kill the developer's own services, containers or running Seneschal.
 - Stop a test process by matching its scratch path, never by its name.
-- New projects (Options, Projects, or the assistant) are made in the projects folder (`Documents/Seneschal/Projects`, changeable in Options, or `SENESCHAL_EXTENSIONS_DIR`), never in this repo, and they build against the copy of the SDK the running app uses (`.seneschal/` in that folder). Delete and the repo's own `extensions/` only concern what is already committed here. An extension in a `BundledExtension` item of the host project can only be deleted after typing `seneschal`.
+- **Never `dotnet build` the checkout while the developer runs from it.** Building `Seneschal.Host` first stops any Seneschal that runs from its `bin` folder (`StopRunningCopy`), which ends their `dev.ps1 -Watch` or Visual Studio session. To compile or try a change, build a copy of the repo (copy it without `bin`, `obj`, `artifacts` and `.git`, build there). Editing source files is fine: the running watch picks those up by itself.
+- New projects (Options, Extension Projects, or the assistant) are made in the projects folder (`Documents/Seneschal/Projects`, changeable in Options, or `SENESCHAL_EXTENSIONS_DIR`), never in this repo, and they build against the copy of the SDK the running app uses (`.seneschal/` in that folder). Delete and the repo's own `extensions/` only concern what is already committed here. An extension in a `BundledExtension` item of the host project can only be deleted after typing `seneschal`.
 
 ## Conventions
 

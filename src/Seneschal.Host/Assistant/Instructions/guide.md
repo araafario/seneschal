@@ -6,6 +6,14 @@ An extension is one or more tools: a page in the sidebar, and the same abilities
 - Seneschal's own tools: seneschal_extension_create_from_template (the starting project, the only step that needs Seneschal), seneschal_extension_guide (this), seneschal_ui_guidelines (the design rules), seneschal_sdk_reference (the types), seneschal_extension_check (checks the project against the rules), seneschal_extension_preview (shows the page in a headless browser, in dark and light). Always use these.
 - After the template, development is ordinary .NET: edit files, run dotnet build, run tests. If you can edit files and run commands yourself (a Claude Code with a terminal), do that and ignore seneschal_extension_files, _read, _write and _build: they only exist for an assistant that has no file access, such as the one built into Seneschal.
 
+## 0. A new project, or one that already exists?
+Making a tool does not always mean making a project. A project can hold several tools, and the user may already have one, in the projects folder or added by hand in Options, Extension Projects (it can be anywhere on the machine). Decide this before anything else:
+1. Call seneschal_extension_list. It shows every project that can be worked on, where it is, and what each builds (its extensions and tools).
+2. The user names a project and it is the same as one in the list (ignore case, spaces and a leading "Seneschal.") and the request is to add or change something in it ("under LoopUp", "in Seneschal.LoopupDevEnv", "add to the Bondio project"): work in that project. Do not create a project. Add the tool to it (a new tool class and page beside the existing ones, then the files the tool needs) and leave what is already there alone.
+3. The name is only similar to one in the list (LoopupDevEnv and Seneschal.LoopupDevEnv, a sidebar group name such as LoopUp, a plural, a different spelling): do not guess. Ask with seneschal_ask_user whether it means the existing project or a new one, name the existing one with its folder, and mark the existing one as recommended.
+4. The user gives no project and it is not clear: if one existing project fits what they want (the same group, the same service, the same data), ask in the same way. If nothing in the list fits, it is a new project.
+5. The user says new ("create a new project", "a separate project") and a project of that name exists: ask whether to use the existing one or to pick another name. A name that exists is refused by the template anyway.
+6. When you work in an existing project, say so in your first line ("Adding it to Seneschal.LoopupDevEnv, which already has Logs and Projects"), and do not run seneschal_extension_create_from_template.
 ## 1. Ask first
 Ask short questions, one or two at a time, and suggest an answer to each. Do not start writing until these are clear:
 - What should it do, and when does the user reach for it? Suggest a short name in PascalCase (JsonDiff) and a one-line description.
@@ -29,7 +37,7 @@ Ask short questions, one or two at a time, and suggest an answer to each. Do not
 Read seneschal_ui_guidelines before you write any page, and follow it. The points that fail a review most: short text with no trailing . , ; ! or ..., Title Case for buttons and titles, buttons are verbs, sizes only from the density scale (--fs-*, --h-ctl, --gap-*), colors only from theme variables (never a written color), an empty, loading, busy and error state for every list and action, and it must look right in dark and light mode. Also: reuse the shared classes before writing a style, make one thing the main thing on the page, let content of any length work (wrap, clamp or scroll inside its own box, no fixed widths), give every control hover, focus and disabled states and keep it reachable by keyboard. seneschal_extension_check finds what a script can see. Finding nothing does not mean the design matches: you still compare your page with the guidelines.
 
 ## 4. How to work
-1. seneschal_extension_create_from_template makes the project. Read what it made so you build on it and do not rewrite it.
+1. A new project: seneschal_extension_create_from_template makes it. An existing one: read its files first (seneschal_extension_files and _read, or the files themselves). Either way, build on what is there and do not rewrite it.
 2. Write the files, one concern per file. Keep the work in the engine and the page thin.
 3. Build. {{build}}
 4. Run seneschal_extension_check, fix every error and warning, and judge every review item.
@@ -52,4 +60,4 @@ Never say it works because the code looks right. Do these in order, and report w
 8. Design: go through the checklist at the end of seneschal_ui_guidelines against the files you wrote. The check covers colors, sizes, wording and case; the screenshots show the layout. You cover what neither can: that every list and action has its empty, loading, busy and error state, and that anything which deletes asks first.
 9. Say what you tested and what only the user can: clicking through the main action with real data. Never claim a test you did not run.
 
-Projects are in {{root}}.
+New projects are made in {{root}}. Projects the user added by hand are where they were added from, and seneschal_extension_list shows where.

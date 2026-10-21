@@ -6,7 +6,7 @@ using Seneschal.Core;
 namespace Seneschal;
 
 /// <summary>One line of a saved chat. Long tool output is cut, so the file stays small.</summary>
-public sealed record SavedItem(ChatKind Kind, string Text, string? ToolName, string? Input, string? Output, bool IsError);
+public sealed record SavedItem(ChatKind Kind, string Text, string? ToolName, string? Input, string? Output, bool IsError, string[]? Thumbs = null);
 
 /// <summary>A conversation as kept on disk. <see cref="SessionId"/> is Claude's own id, which lets the chat go on after the app restarted.</summary>
 public sealed record SavedChat(string Id, string Title, DateTimeOffset Updated, string? SessionId, List<SavedItem> Items);
@@ -87,6 +87,7 @@ public sealed partial class ChatHistory
     private static string Title(string text)
     {
         var line = text.Split('\n', 2)[0].Trim();
+        if (line.Length == 0) return "Image";
         return line.Length <= 60 ? line : line[..60].TrimEnd() + "…";
     }
 
@@ -94,7 +95,7 @@ public sealed partial class ChatHistory
 
     private static SavedItem Copy(ChatItem item) =>
         new(item.Kind, Redact(item.Text) ?? "", item.ToolName, Redact(item.Input),
-            Shorten(Redact(item.Output)), item.IsError);
+            Shorten(Redact(item.Output)), item.IsError, item.Images.Count > 0 ? [.. item.Images.Select(i => i.Thumb)] : null);
 
     // Hidden first, then cut: a cut token would no longer look like one
     private static string? Shorten(string? text) => text is { Length: > MaxOutput } ? text[..MaxOutput] : text;

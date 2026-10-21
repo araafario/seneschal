@@ -8,7 +8,7 @@ public sealed class UiSettings
 {
     private static readonly string FilePath = AppPaths.File("ui.json");
 
-    private sealed record State(bool SidebarExpanded = true, bool DarkMode = true, bool DevLiveReload = true, string[]? DevFolders = null, string? ProjectsFolder = null);
+    private sealed record State(bool SidebarExpanded = true, bool DarkMode = true, bool DevLiveReload = true, string[]? DevFolders = null, string? ProjectsFolder = null, string? FontFamily = null);
 
     private State _state = new();
 
@@ -45,6 +45,27 @@ public sealed class UiSettings
     {
         get => _state.DevLiveReload;
         set => Update(_state with { DevLiveReload = value });
+    }
+
+    /// <summary>The fonts the app falls back to, and uses when none is chosen.</summary>
+    public static readonly string[] DefaultFontStack = ["Segoe UI Variable", "Segoe UI", "system-ui", "sans-serif"];
+
+    /// <summary>The font the person chose for the whole app (a font installed on this computer), or null for the default.</summary>
+    public string? FontFamily
+    {
+        get => _state.FontFamily;
+        set => Update(_state with { FontFamily = Clean(value) });
+    }
+
+    /// <summary>The chosen font first, then the default ones, so a font that is not installed still shows text.</summary>
+    public string[] FontStack => FontFamily is { } font ? [font, .. DefaultFontStack] : DefaultFontStack;
+
+    /// <summary>A font name and nothing that could break out of a CSS value.</summary>
+    private static string? Clean(string? name)
+    {
+        const string Forbidden = "\"'\\;{}<>()";
+        var clean = new string((name ?? "").Where(c => !Forbidden.Contains(c) && !char.IsControl(c)).ToArray()).Trim();
+        return clean.Length is > 0 and <= 60 ? clean : null;
     }
 
     /// <summary>Where the extension projects are made. Empty means the default, Documents/Seneschal/Projects.</summary>

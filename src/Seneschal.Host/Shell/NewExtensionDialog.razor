@@ -56,6 +56,10 @@
         <div class="dlg-fields">
             <SwitchRow @bind-Value="_services" Id="ne-services" Label="Include an example service" Hint="A state kept in the extension's own container, with the page and a tool to read it" />
             <SwitchRow @bind-Value="_build" Id="ne-build" Label="Build after creating" Hint="Compiles the project, and every later build is loaded by itself" />
+            @if (GitInit.Available)
+            {
+                <SwitchRow @bind-Value="_git" Id="ne-git" Label="Create a git repository" Hint="Adds a .gitignore and .gitattributes and makes the first commit" />
+            }
         </div>
 
         @if (_error is not null)
@@ -81,6 +85,7 @@
     private bool _picking;
     private bool _services = true;
     private bool _build = true;
+    private bool _git = GitInit.Available;
 
     /// <summary>Only complains once there is something to complain about; an empty name just keeps Create disabled.</summary>
     private bool NameInvalid => _name.Trim().Length > 0 && !Scaffolder.IsValidName(_name);
@@ -102,7 +107,7 @@
 
     private void Create()
     {
-        var result = Author.Create(new NewExtension(_name, _title, _group, _description, _icon, _services));
+        var result = Author.Create(new NewExtension(_name, _title, _group, _description, _icon, _services, _git));
         if (result.Ok)
             MudDialog.Close(DialogResult.Ok(new CreatedExtension(result, _name.Trim(), _build)));
         else

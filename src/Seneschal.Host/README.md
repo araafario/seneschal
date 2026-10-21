@@ -2,7 +2,7 @@
 
 The app: a Blazor Web App (interactive server, MudBlazor, .NET 10) that provides the shell and loads the tools that extensions provide.
 The shell is the sidebar, search, favorites, the group pages and the tool pages.
-It also contains the Options page (the Extensions section lists, turns on and imports extensions) grouped as General (Extensions, Appearance), AI (Assistant, Instructions, MCP, MCP Tools) and Developer (Projects, for whoever makes extensions). Each section is a component in `Shell/Sections`, built from `OptionHeader`, `SettingCard` and `SettingExpander`.
+It also contains the Options page (the Extensions section lists, turns on and imports extensions) grouped as General (Extensions, Appearance), AI (Assistant, Instructions, MCP, MCP Tools) and Developer (Extension Projects, for whoever makes extensions). Each section is a component in `Shell/Sections`, built from `OptionHeader`, `SettingCard` and `SettingExpander`.
 
 ## Run
 
@@ -17,7 +17,7 @@ Default addresses (`Properties/launchSettings.json`): `https://localhost:7228` a
 
 ```
 Core/    extension loading: manifest, package, load context, registry, settings, paths
-Dev/     the engine of Options, Projects: repo detection, scaffolder, solution file edits, build, restart
+Dev/     the engine of Options, Extension Projects: repo detection, scaffolder, solution file edits, build, restart
 Shell/   the UI: layout, sidebar, search, tool and group pages, dialogs, theme
   Pages/ Home, GroupPage, ToolHost, ExtensionManager, Options, Tutorial, Error, NotFound
 wwwroot/ app.css (theme variables and shared styles), the logo (seneschal.png) and the icons (favicon.ico and favicon.png)
@@ -67,9 +67,9 @@ A data folder from the earlier name of the app (DevToolbelt) is adopted once so 
 | `SENESCHAL_DEV_EXTENSIONS` | Extra folders with dev builds of extensions |
 | `SENESCHAL_DATA_DIR` | Replaces the app data folder |
 | `SENESCHAL_RESTARTABLE` | Set by `dev.ps1`. It tells the app that exit code 42 will be followed by a restart, which enables the *Restart app* buttons |
-| `ASPNETCORE_ENVIRONMENT` | `Development` (together with a repo checkout) lets Options, Projects create projects inside the repo |
+| `ASPNETCORE_ENVIRONMENT` | `Development` (together with a repo checkout) lets Options, Extension Projects create projects inside the repo |
 
-## Options, Projects
+## Options, Extension Projects
 
 Shown when the .NET SDK is installed or `DevMode` is on. `DevProjects` merges the projects of this repo (when the app finds `Seneschal.slnx` above its folder) and the folders being watched (Live Reload). Live Reload is the switch at the top: a project builds into its `artifacts/extensions` and `DevWatcher` loads each build.
 
@@ -148,7 +148,7 @@ The *Help me create a new extension* card is always the first starter card. When
 
 ## Extension templates
 
-`Dev/Scaffolder.cs` makes new extension projects. `CreateLocal` is for Options, Projects and the assistant tool `seneschal_extension_create_from_template`: a project in the projects folder that builds against the SDK copy the app uses. `CreateStandalone` is for people outside Seneschal: a project that builds from the `Seneschal.Sdk` package, used by `seneschal extension new`. `Create` (inside this repository) is kept only for the repository's own bundled examples and is no longer used by the app. `seneschal_extension_guide` gives the assistant the guide to follow.
+`Dev/Scaffolder.cs` makes new extension projects. `CreateLocal` is for Options, Extension Projects and the assistant tool `seneschal_extension_create_from_template`: a project in the projects folder that builds against the SDK copy the app uses. `CreateStandalone` is for people outside Seneschal: a project that builds from the `Seneschal.Sdk` package, used by `seneschal extension new`. `Create` (inside this repository) is kept only for the repository's own bundled examples and is no longer used by the app. `seneschal_extension_guide` gives the assistant the guide to follow.
 
 ## The Assistant
 

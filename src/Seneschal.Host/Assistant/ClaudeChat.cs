@@ -26,6 +26,9 @@ public sealed class ChatItem(ChatKind kind, string text)
     public string? Output { get; set; }
     public bool Done { get; set; }
     public bool IsError { get; set; }
+
+    /// <summary>The pictures that came with a message of the person.</summary>
+    public List<ChatImage> Images { get; } = [];
 }
 
 /// <summary>
@@ -111,7 +114,12 @@ public sealed class ClaudeChat(AssistantSettings settings, McpAddress address, C
         {
             _items.Clear();
             foreach (var saved in chat.Items)
-                _items.Add(new ChatItem(saved.Kind, saved.Text) { ToolName = saved.ToolName, Input = saved.Input, Output = saved.Output, IsError = saved.IsError, Done = true });
+            {
+                var item = new ChatItem(saved.Kind, saved.Text) { ToolName = saved.ToolName, Input = saved.Input, Output = saved.Output, IsError = saved.IsError, Done = true };
+                // Only the small copies were kept: they are what is shown again
+                foreach (var thumb in saved.Thumbs ?? []) item.Images.Add(new ChatImage("image/jpeg", null, thumb));
+                _items.Add(item);
+            }
         }
         SessionId = chat.SessionId;
         Id = chat.Id;
@@ -131,10 +139,12 @@ public sealed class ClaudeChat(AssistantSettings settings, McpAddress address, C
         try { if (_process is { HasExited: false } process) process.Kill(entireProcessTree: true); } catch (Exception ex) when (ex is InvalidOperationException or System.ComponentModel.Win32Exception) { }
     }
 
-    public async Task SendAsync(string prompt)
+    public async Task SendAsync(string prompt, IReadOnlyList<ChatImage>? images = null)
     {
         prompt = prompt.Trim();
-        if (prompt.Length == 0 || Running) return;
+        images ??= [];
+        // A message is words, pictures, or both
+        if ((prompt.Length == 0 && images.Count == 0) || Running) return;
 
         var claude = ClaudePath;
         if (claude is null)
@@ -149,7 +159,9 @@ public sealed class ClaudeChat(AssistantSettings settings, McpAddress address, C
             return;
         }
 
-        Add(new ChatItem(ChatKind.User, prompt));
+        var sent = new ChatItem(ChatKind.User, prompt);
+        sent.Images.AddRange(images);
+        Add(sent);
         RunStarted = DateTimeOffset.UtcNow;
         Running = true;
         Changed?.Invoke();
@@ -197,6 +209,8 @@ public sealed class ClaudeChat(AssistantSettings settings, McpAddress address, C
                 "--append-system-prompt", instructions.Build(),
             })
                 start.ArgumentList.Add(argument);
+            // Words alone go in as text. With pictures the message goes in as the JSON Claude reads for that (image blocks, then the words)
+            if (images.Count > 0) { start.ArgumentList.Add("--input-format"); start.ArgumentList.Add("stream-json"); }
             if (settings.Model is { } model) { start.ArgumentList.Add("--model"); start.ArgumentList.Add(model); }
             if (SessionId is { } session) { start.ArgumentList.Add("--resume"); start.ArgumentList.Add(session); }
 
@@ -208,7 +222,7 @@ public sealed class ClaudeChat(AssistantSettings settings, McpAddress address, C
             _process = process;
             process.ErrorDataReceived += (_, e) => { if (e.Data is not null) lock (errors) errors.AppendLine(e.Data); };
             process.BeginErrorReadLine();
-            await process.StandardInput.WriteAsync(prompt);
+            await process.StandardInput.WriteAsync(images.Count > 0 ? WithImages(prompt, images) : prompt);
             process.StandardInput.Close();
 
             var reader = new StreamReader(process.StandardOutput.BaseStream, Encoding.UTF8);
@@ -247,6 +261,20 @@ public sealed class ClaudeChat(AssistantSettings settings, McpAddress address, C
             history.Save(Id, Items, SessionId);
             Changed?.Invoke();
         }
+    }
+
+    /// <summary>One user message as a line of stream-json: the pictures, then the words.</summary>
+    private static string WithImages(string prompt, IReadOnlyList<ChatImage> images)
+    {
+        var content = new JsonArray();
+        foreach (var image in images)
+            content.Add(new JsonObject
+            {
+                ["type"] = "image",
+                ["source"] = new JsonObject { ["type"] = "base64", ["media_type"] = image.MediaType, ["data"] = image.Data },
+            });
+        if (prompt.Length > 0) content.Add(new JsonObject { ["type"] = "text", ["text"] = prompt });
+        return new JsonObject { ["type"] = "user", ["message"] = new JsonObject { ["role"] = "user", ["content"] = content } }.ToJsonString() + "\n";
     }
 
     private void Handle(JsonNode message, Dictionary<int, ChatItem> streamed)

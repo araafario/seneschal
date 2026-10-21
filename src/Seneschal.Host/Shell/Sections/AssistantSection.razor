@@ -26,6 +26,7 @@
 </div>
 
 <h3 class="opt-group">Approvals</h3>
+<p class="opt-note opt-lead">An action that needs approval waits for you, with no time limit. Turn on Always allow to skip the question</p>
 <div class="opt-stack">
     <SettingCard Key="always-allow" Icon="@Icons.Material.Outlined.GppMaybe" Title="Always allow actions"
                  Description="Runs every action without asking, deleting included. Applies to every MCP client">
@@ -33,6 +34,34 @@
             <MudSwitch T="bool" Value="@Settings.AlwaysAllow" ValueChanged="v => Settings.AlwaysAllow = v" Color="Color.Primary" aria-label="Always allow actions" id="as-always-allow" />
         </Control>
     </SettingCard>
+</div>
+
+<h3 class="opt-group">Questions</h3>
+<div class="opt-stack">
+    <SettingCard Key="question-mode" Icon="@Icons.Material.Outlined.HelpOutline" Title="When the assistant asks you" Description="@ModeText">
+        <Control>
+            <MudSelect T="string" Value="@Settings.QuestionMode" ValueChanged="v => Settings.QuestionMode = v"
+                       Variant="Variant.Outlined" Margin="Margin.Dense" Class="sc-select sc-select-wide" aria-label="When the assistant asks you" id="as-question-mode">
+                <MudSelectItem T="string" Value="@QuestionModes.Ask">Wait for my answer</MudSelectItem>
+                <MudSelectItem T="string" Value="@QuestionModes.Timeout">Wait, then use the recommended answer</MudSelectItem>
+                <MudSelectItem T="string" Value="@QuestionModes.Recommended">Use the recommended answer</MudSelectItem>
+            </MudSelect>
+        </Control>
+    </SettingCard>
+    @if (Settings.QuestionMode == QuestionModes.Timeout)
+    {
+        <SettingCard Key="question-wait" Icon="@Icons.Material.Outlined.Timer" Title="How long it waits" Description="You can still answer before the time is up">
+            <Control>
+                <MudSelect T="int" Value="@Settings.QuestionSeconds" ValueChanged="v => Settings.QuestionSeconds = v"
+                           Variant="Variant.Outlined" Margin="Margin.Dense" Class="sc-select" aria-label="How long it waits" id="as-question-seconds">
+                    @foreach (var (seconds, label) in Waits)
+                    {
+                        <MudSelectItem T="int" Value="@seconds">@label</MudSelectItem>
+                    }
+                </MudSelect>
+            </Control>
+        </SettingCard>
+    }
 </div>
 
 <h3 class="opt-group">Testing</h3>
@@ -48,6 +77,15 @@
 @code {
     // Looked up once: the search walks every folder on PATH
     private string _detected = "";
+
+    private static readonly (int Seconds, string Label)[] Waits = [(10, "10 seconds"), (30, "30 seconds"), (60, "1 minute"), (120, "2 minutes"), (300, "5 minutes")];
+
+    private string ModeText => Settings.QuestionMode switch
+    {
+        QuestionModes.Recommended => "It picks the option it recommends at once, and says so",
+        QuestionModes.Timeout => "It waits, then picks the option it recommends",
+        _ => "It waits for your answer, as long as that takes",
+    };
 
     protected override void OnInitialized() => _detected = ClaudeChat.Find(null) ?? "Not found";
 

@@ -2,67 +2,79 @@
 @inject IToolRegistry Registry
 @inject GroupIcons GroupIconService
 @inject IDialogService Dialogs
+@inject UiSettings Ui
 
 <OptionHeader Title="Appearance" Description="The icons the sidebar, the home page and search show for your tools" />
 
-<h3 class="opt-group">Icons</h3>
-<p class="opt-note opt-lead">An extension gives each of its tools a default icon. Pick another to use it instead, and reset to go back to the default. The dot sets the color of the group on Home</p>
+<h3 class="opt-group">Text</h3>
+<div class="opt-stack">
+    @* The font of the whole app. It applies at once; a font that is not installed on this computer falls back to the default one. *@
+    <SettingCard Key="font" Icon="@Icons.Material.Outlined.TextFields" Title="Font" Description="The font of the whole app. It has to be installed on this computer">
+        <Control>
+            <MudSelect T="string" Value="FontChoice" ValueChanged="ChooseFont" Variant="Variant.Outlined" Margin="Margin.Dense" Class="sc-select" aria-label="Font" id="font-select">
+                @foreach (var (value, label) in Fonts)
+                {
+                    <MudSelectItem T="string" Value="@value">@label</MudSelectItem>
+                }
+                <MudSelectItem T="string" Value="@OtherFont">Other</MudSelectItem>
+            </MudSelect>
+        </Control>
+        <ChildContent>
+            @if (FontChoice == OtherFont)
+            {
+                <div class="sc-form">
+                    <MudTextField T="string" Value="@Ui.FontFamily" ValueChanged="v => Ui.FontFamily = v" Label="Font name" Placeholder="Cascadia Code" HelperText="The name as Windows lists it"
+                                  Variant="Variant.Outlined" Margin="Margin.Dense" DebounceInterval="500" id="font-custom" />
+                </div>
+            }
+        </ChildContent>
+    </SettingCard>
+</div>
 
+<h3 class="opt-group">Icons</h3>
+<p class="opt-note opt-lead">Pick the icon of a group or a tool, and the color of a group on Home. Reset goes back to the default</p>
+
+@* A group is a card; its color and its icon are on its own row, and the tools it lists are rows inside it with their own icon. Every change is a visible button. *@
 <div class="opt-stack">
     @foreach (var group in Registry.InstalledGroups)
     {
         var name = group.Key;
         var custom = GroupIconService.IsCustom(name);
+        var colored = GroupIconService.IsColorCustom(name);
         var count = group.Count();
         <SettingExpander Key="@($"group:{name}")" Title="@name" Open="@(Registry.InstalledGroups.Count <= 3)"
                          Description="@($"{count} {(count == 1 ? "tool" : "tools")}")" Icon="@GroupIconService.Get(name)">
-            <IconContent>
-                <button type="button" class="sc-iconbtn" aria-label="@($"Change icon for {name}")" title="Change icon" @onclick="() => ChangeGroup(name)">
-                    <MudIcon Icon="@GroupIconService.Get(name)" />
-                </button>
-            </IconContent>
             <Badge>@if (custom) { <span class="sc-badge is-accent">Custom</span> }</Badge>
             <Control>
+                <span class="swatches" role="group" aria-label="@($"Color of {name}")">
+                    @foreach (var key in GroupIcons.ColorKeys)
+                    {
+                        var picked = colored && GroupIconService.Color(name, AllGroups) == key;
+                        var color = key;
+                        <MudTooltip Text="@Pretty(key)">
+                            <button type="button" class="@($"swatch hue-{key} {(picked ? "is-on" : "")}")" aria-label="@Pretty(key)" aria-pressed="@(picked ? "true" : "false")"
+                                    @onclick="() => GroupIconService.SetColor(name, color)"></button>
+                        </MudTooltip>
+                    }
+                    <MudTooltip Text="Automatic">
+                        <button type="button" class="@($"swatch swatch-auto {(colored ? "" : "is-on")}")" aria-label="Automatic" aria-pressed="@(colored ? "false" : "true")"
+                                @onclick="() => GroupIconService.ResetColor(name)"><MudIcon Icon="@Icons.Material.Outlined.AutoAwesome" /></button>
+                    </MudTooltip>
+                </span>
                 @if (custom)
                 {
                     <MudTooltip Text="Reset to default">
                         <MudIconButton Icon="@Icons.Material.Outlined.RestartAlt" Size="Size.Small" Class="sq-btn" aria-label="@($"Reset icon for {name}")" OnClick="() => GroupIconService.Reset(name)" />
                     </MudTooltip>
                 }
+                <MudButton Size="Size.Small" Variant="Variant.Outlined" OnClick="() => ChangeGroup(name)" aria-label="@($"Change icon for {name}")">Change Icon</MudButton>
             </Control>
             <ChildContent>
-                <SettingCard Nested="true" Key="@($"color:{name}")" Title="Color" Description="For the icons and the dot on Home">
-                    <IconContent>
-                        <span class="sc-iconbtn is-static"><MudIcon Icon="@Icons.Material.Outlined.Palette" /></span>
-                    </IconContent>
-                    <Control>
-                        <span class="swatches" role="group" aria-label="@($"Color of {name}")">
-                            @foreach (var key in GroupIcons.ColorKeys)
-                            {
-                                var picked = GroupIconService.IsColorCustom(name) && GroupIconService.Color(name, AllGroups) == key;
-                                var color = key;
-                                <MudTooltip Text="@Pretty(key)">
-                                    <button type="button" class="@($"swatch hue-{key} {(picked ? "is-on" : "")}")" aria-label="@Pretty(key)" aria-pressed="@(picked ? "true" : "false")"
-                                            @onclick="() => GroupIconService.SetColor(name, color)"></button>
-                                </MudTooltip>
-                            }
-                            <MudTooltip Text="Automatic">
-                                <button type="button" class="@($"swatch swatch-auto {(GroupIconService.IsColorCustom(name) ? "" : "is-on")}")" aria-label="Automatic" aria-pressed="@(GroupIconService.IsColorCustom(name) ? "false" : "true")"
-                                        @onclick="() => GroupIconService.ResetColor(name)"><MudIcon Icon="@Icons.Material.Outlined.AutoAwesome" /></button>
-                            </MudTooltip>
-                        </span>
-                    </Control>
-                </SettingCard>
                 @foreach (var tool in group)
                 {
                     var id = tool.Id;
                     var toolCustom = GroupIconService.IsToolCustom(id);
-                    <SettingCard Nested="true" Key="@($"tool:{id}")" Title="@tool.Title" Description="@tool.Description">
-                        <IconContent>
-                            <button type="button" class="sc-iconbtn" aria-label="@($"Change icon for {tool.Title}")" title="Change icon" @onclick="() => ChangeTool(id)">
-                                <MudIcon Icon="@GroupIconService.Tool(tool)" />
-                            </button>
-                        </IconContent>
+                    <SettingCard Nested="true" Key="@($"tool:{id}")" Title="@tool.Title" Description="@tool.Description" Icon="@GroupIconService.Tool(tool)">
                         <Badge>@if (toolCustom) { <span class="sc-badge is-accent">Custom</span> }</Badge>
                         <Control>
                             @if (toolCustom)
@@ -71,6 +83,7 @@
                                     <MudIconButton Icon="@Icons.Material.Outlined.RestartAlt" Size="Size.Small" Class="sq-btn" aria-label="@($"Reset icon for {tool.Title}")" OnClick="() => GroupIconService.ResetTool(id)" />
                                 </MudTooltip>
                             }
+                            <MudButton Size="Size.Small" Variant="Variant.Outlined" OnClick="() => ChangeTool(id)" aria-label="@($"Change icon for {tool.Title}")">Change Icon</MudButton>
                         </Control>
                     </SettingCard>
                 }
@@ -78,7 +91,6 @@
         </SettingExpander>
     }
 </div>
-
 @if (!Registry.InstalledGroups.Any())
 {
     <div class="opt-empty">No extensions yet</div>
@@ -87,18 +99,43 @@
 @code {
     private IEnumerable<string> AllGroups => Registry.InstalledGroups.Select(g => g.Key);
 
+    /// <summary>Fonts that come with Windows. An empty value is the app's own default, which is Segoe UI, so it is named that.</summary>
+    private static readonly (string Value, string Label)[] Fonts =
+    [
+        ("", "Segoe UI (default)"), ("Calibri", "Calibri"), ("Candara", "Candara"), ("Corbel", "Corbel"), ("Arial", "Arial"),
+        ("Verdana", "Verdana"), ("Tahoma", "Tahoma"), ("Trebuchet MS", "Trebuchet MS"), ("Georgia", "Georgia"), ("Cambria", "Cambria"),
+        ("Cascadia Code", "Cascadia Code"), ("Consolas", "Consolas"),
+    ];
+
+    private const string OtherFont = "\u0000other";
+
+    private bool _other;
+
+    private string FontChoice => _other ? OtherFont
+        : string.IsNullOrEmpty(Ui.FontFamily) ? ""
+        : Fonts.Any(f => f.Value == Ui.FontFamily) ? Ui.FontFamily!
+        : OtherFont;
+
+    private void ChooseFont(string value)
+    {
+        _other = value == OtherFont;
+        if (!_other) Ui.FontFamily = value;
+    }
+
     private static string Pretty(string key) => char.ToUpperInvariant(key[0]) + key[1..];
 
     protected override void OnInitialized()
     {
         GroupIconService.Changed += OnChanged;
         Registry.Changed += OnChanged;
+        Ui.Changed += OnChanged;
     }
 
     public void Dispose()
     {
         GroupIconService.Changed -= OnChanged;
         Registry.Changed -= OnChanged;
+        Ui.Changed -= OnChanged;
     }
 
     private void OnChanged() => _ = InvokeAsync(StateHasChanged);

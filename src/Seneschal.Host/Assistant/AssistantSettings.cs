@@ -23,11 +23,21 @@ public static class AssistantModels
     public static string Label(string? value) => Choices(value).First(c => c.Value == (value ?? "")).Label;
 }
 
+/// <summary>The ways a question the assistant asks can be answered.</summary>
+public static class QuestionModes
+{
+    public const string Ask = "ask";
+    public const string Recommended = "recommended";
+    public const string Timeout = "timeout";
+
+    public static string Valid(string? mode) => mode is Recommended or Timeout ? mode : Ask;
+}
+
 /// <summary>How the assistant runs: which Claude to start, whether to ask before every change, and the secret that lets Claude into the MCP endpoint.</summary>
 public sealed class AssistantSettings
 {
     private static readonly JsonSerializerOptions Json = new() { WriteIndented = true };
-    private sealed record Saved(string? ClaudePath, bool AskBeforeChanges, string? Model, bool? ShowTestBrowser = null, bool? AlwaysAllow = null);
+    private sealed record Saved(string? ClaudePath, bool AskBeforeChanges, string? Model, bool? ShowTestBrowser = null, bool? AlwaysAllow = null, string? Dock = null, int? DockWidth = null, string? QuestionMode = null, int? QuestionSeconds = null);
 
     private readonly object _gate = new();
     private string? _claudePath;
@@ -35,6 +45,10 @@ public sealed class AssistantSettings
     private bool _askBeforeChanges;
     private bool _showTestBrowser;
     private bool _alwaysAllow;
+    private string _dock = "floating";
+    private int _dockWidth;
+    private string _questionMode = QuestionModes.Ask;
+    private int _questionSeconds = 30;
 
     public AssistantSettings()
     {
@@ -47,6 +61,10 @@ public sealed class AssistantSettings
                 _model = saved.Model;
                 _showTestBrowser = saved.ShowTestBrowser ?? false;
                 _alwaysAllow = saved.AlwaysAllow ?? false;
+                _dock = saved.Dock == "sidebar" ? "sidebar" : "floating";
+                _dockWidth = saved.DockWidth is >= 320 and <= 900 ? saved.DockWidth.Value : 0;
+                _questionMode = QuestionModes.Valid(saved.QuestionMode);
+                _questionSeconds = saved.QuestionSeconds is >= 5 and <= 600 ? saved.QuestionSeconds.Value : 30;
             }
         }
         catch (Exception ex) when (ex is IOException or JsonException or UnauthorizedAccessException)
@@ -99,6 +117,18 @@ public sealed class AssistantSettings
     /// </summary>
     public bool AlwaysAllow { get { lock (_gate) return _alwaysAllow; } set { Set(() => _alwaysAllow = value); } }
 
+    /// <summary>Where the chat panel sits: <c>floating</c> (a card in the bottom right corner) or <c>sidebar</c> (docked at the right, full height, the page beside it).</summary>
+    public string Dock { get { lock (_gate) return _dock; } set { Set(() => _dock = value == "sidebar" ? "sidebar" : "floating"); } }
+
+    /// <summary>The width in pixels the user dragged the docked panel to. 0 leaves it at the default.</summary>
+    public int DockWidth { get { lock (_gate) return _dockWidth; } set { Set(() => _dockWidth = value is >= 320 and <= 900 ? value : 0); } }
+
+    /// <summary>What happens when the assistant asks a question: <c>ask</c> (waits for the answer, with no time limit), <c>recommended</c> (picks the recommended option at once) or <c>timeout</c> (waits, then picks it).</summary>
+    public string QuestionMode { get { lock (_gate) return _questionMode; } set { Set(() => _questionMode = QuestionModes.Valid(value)); } }
+
+    /// <summary>How long a question waits in the <c>timeout</c> mode, in seconds.</summary>
+    public int QuestionSeconds { get { lock (_gate) return _questionSeconds; } set { Set(() => _questionSeconds = value is >= 5 and <= 600 ? value : 30); } }
+
     public event Action? Changed;
 
     /// <summary>Back to the defaults (Claude is found by itself, the default model, ask before changes). The MCP secret is not a setting and stays.</summary>
@@ -111,6 +141,10 @@ public sealed class AssistantSettings
             _askBeforeChanges = false;
             _showTestBrowser = false;
             _alwaysAllow = false;
+            _dock = "floating";
+            _dockWidth = 0;
+            _questionMode = QuestionModes.Ask;
+            _questionSeconds = 30;
             try { File.Delete(AppPaths.File("assistant.json")); }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { }
         }
@@ -122,7 +156,7 @@ public sealed class AssistantSettings
         lock (_gate)
         {
             change();
-            try { File.WriteAllText(AppPaths.File("assistant.json"), JsonSerializer.Serialize(new Saved(_claudePath, _askBeforeChanges, _model, _showTestBrowser, _alwaysAllow), Json)); }
+            try { File.WriteAllText(AppPaths.File("assistant.json"), JsonSerializer.Serialize(new Saved(_claudePath, _askBeforeChanges, _model, _showTestBrowser, _alwaysAllow, _dock, _dockWidth, _questionMode, _questionSeconds), Json)); }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { }
         }
         Changed?.Invoke();

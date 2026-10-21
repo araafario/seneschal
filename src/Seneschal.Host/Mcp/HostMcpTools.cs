@@ -40,7 +40,7 @@ public sealed class HostMcpTools(IToolRegistry tools, ExtensionSettings settings
                 return $"{id} is now {(enabled ? "on" : "off")}";
             });
 
-        yield return new McpTool("seneschal_ask_user", "Ask the user to choose, shown as a card in the assistant panel with the options as rows. Use it instead of a question in plain text whenever there are a few clear options (which one, which approach, yes or no with a reason). Waits for the answer and returns the chosen labels, or what the user typed. Returns no answer when the user skips",
+        yield return new McpTool("seneschal_ask_user", "Ask the user to choose, shown as a card in the assistant panel with the options as rows. Use it instead of a question in plain text whenever there are a few clear options (which one, which approach, yes or no with a reason). Waits for the answer and returns the chosen labels, or what the user typed. Mark the option you recommend with recommended: true, because the user may let Seneschal pick it for them, and the answer then says Automatic. Returns no answer when the user skips",
             McpEffect.Read,
             McpSchema.Object()
                 .Text("question", "The question, short", required: true)
@@ -55,6 +55,7 @@ public sealed class HostMcpTools(IToolRegistry tools, ExtensionSettings settings
                         {
                             ["label"] = new System.Text.Json.Nodes.JsonObject { ["type"] = "string", ["description"] = "Short, one to five words" },
                             ["description"] = new System.Text.Json.Nodes.JsonObject { ["type"] = "string", ["description"] = "One line that says what it means" },
+                            ["recommended"] = new System.Text.Json.Nodes.JsonObject { ["type"] = "boolean", ["description"] = "True for the option you recommend (one, unless more than one can be chosen). The user may let Seneschal pick it for them, so always mark one" },
                         },
                         ["required"] = new System.Text.Json.Nodes.JsonArray("label"),
                     },
@@ -65,11 +66,14 @@ public sealed class HostMcpTools(IToolRegistry tools, ExtensionSettings settings
             {
                 var options = (args.Values["options"] as System.Text.Json.Nodes.JsonArray ?? [])
                     .OfType<System.Text.Json.Nodes.JsonObject>()
-                    .Select(o => new QuestionOption(o["label"]?.GetValue<string>()?.Trim() ?? "", o["description"]?.GetValue<string>()?.Trim() ?? ""))
+                    .Select(o => new QuestionOption(o["label"]?.GetValue<string>()?.Trim() ?? "", o["description"]?.GetValue<string>()?.Trim() ?? "", o["recommended"]?.GetValue<bool>() ?? false))
                     .Where(o => o.Label.Length > 0).ToList();
                 if (options.Count < 2) throw new McpException("Give at least two options");
                 var answer = await questions.AskAsync(new Question(args.Text("question"), options, args.Flag("multiple"), args.Flag("allowOther", true)), cancel);
-                return answer is null ? "The user did not answer. Carry on with a sensible default and say which" : new { Answer = answer };
+                if (answer.Labels is null) return "The user did not answer. Carry on with a sensible default and say which";
+                return answer.Automatic
+                    ? new { Answer = answer.Labels, Automatic = true, Note = "The user did not choose: Seneschal picked the recommended option for them. Say so, and carry on" }
+                    : (object)new { Answer = answer.Labels };
             });
 
         yield return new McpTool("seneschal_instructions_list", "List the texts that shape the assistant (character, lessons, extension guide, UI guidelines, SDK reference) and whether the user changed them",
@@ -180,25 +184,36 @@ public sealed class HostMcpTools(IToolRegistry tools, ExtensionSettings settings
                 return $"No longer watching {path}";
             });
 
-        yield return new McpTool("seneschal_extension_list", "List the extension projects that can be worked on here (the folder they are in, and their names)",
-            McpEffect.Read, McpSchema.None, _ => new { Folder = authoring.Root, Projects = authoring.Projects() });
+        yield return new McpTool("seneschal_extension_list", "List every extension project that can be worked on: the ones in the projects folder and the ones the user added in Options, Extension Projects (anywhere on the machine). Each has its name, its folder, where it comes from, and what it builds (the extensions and the tool ids). Call it before you create or change anything: a request to make or add a tool may mean an existing project, so decide from this list whether the work belongs in one of them (see seneschal_extension_guide, step 0)",
+            McpEffect.Read, McpSchema.None, _ => new { Folder = authoring.Root, Projects = authoring.ProjectList() });
 
-        yield return new McpTool("seneschal_extension_create_from_template", "Create a new extension project from Seneschal's template: a tool class, a page, an engine, a manifest and a stylesheet, ready to build. This is the only step of making an extension that needs Seneschal. After it, development is ordinary: edit the files and run dotnet build yourself when you can (the file and build tools below are for assistants that have no file access, such as the built-in one). Read seneschal_extension_guide and ask the user what the tool should do first",
+        yield return new McpTool("seneschal_extension_delete_project", "Delete an extension project of the projects folder: its tools are unloaded and the project moves to .deleted in the projects folder, so the user can move it back. It never touches a project the user added by hand (use seneschal_dev_folder_remove to stop watching one). The user is asked first",
+            McpEffect.Destructive, McpSchema.Object().Text("name", "The project name from seneschal_extension_list", required: true),
+            args =>
+            {
+                var result = authoring.DeleteProject(args.Text("name"));
+                if (!result.Ok) throw new McpException(result.Message);
+                return result.Message;
+            });
+
+        yield return new McpTool("seneschal_extension_create_from_template", "Create a NEW extension project from Seneschal's template (only when the work really is a new project: never when the user means an existing one, which seneschal_extension_list shows, and ask with seneschal_ask_user when it is not clear; a name that already exists is refused): a tool class, a page, an engine, a manifest and a stylesheet, ready to build. This is the only step of making an extension that needs Seneschal. After it, development is ordinary: edit the files and run dotnet build yourself when you can (the file and build tools below are for assistants that have no file access, such as the built-in one). Read seneschal_extension_guide and ask the user what the tool should do first",
             McpEffect.Change,
             McpSchema.Object()
                 .Text("name", "The project name: capital letter first, letters and digits only, such as JsonDiff", required: true)
                 .Text("title", "What the tool is called in the app, such as Json Diff (default: the name split into words)")
                 .Text("description", "One short phrase that says what the tool does")
                 .Text("group", "The sidebar group it is listed under (default: Other)")
-                .Flag("services", "True when the extension needs its own services (the template adds an example)"),
+                .Flag("services", "True when the extension needs its own services (the template adds an example)")
+                .Flag("git", "True to make a git repository of the project, with a .gitignore, a .gitattributes and a first commit"),
             args =>
             {
-                var result = authoring.Create(new NewExtension(args.Text("name"), args.Optional("title") ?? "", args.Optional("group") ?? "", args.Optional("description") ?? "", Scaffolder.DefaultIcon, args.Flag("services")));
+                var result = authoring.Create(new NewExtension(args.Text("name"), args.Optional("title") ?? "", args.Optional("group") ?? "", args.Optional("description") ?? "", Scaffolder.DefaultIcon, args.Flag("services"), args.Flag("git")));
                 if (!result.Ok) throw new McpException(result.Message);
                 return new
                 {
                     result.Message,
                     result.Folder,
+                    result.Notes,
                     Next = "Develop it like any .NET project, following seneschal_extension_guide and seneschal_ui_guidelines. If you cannot edit files yourself, read the files with seneschal_extension_files and seneschal_extension_read, change them with seneschal_extension_write and build with seneschal_extension_build. Then run seneschal_extension_check and test it as the guide says",
                 };
             });

@@ -17,11 +17,11 @@ public sealed class ApprovalRequest(string tool, string source, string descripti
 
 /// <summary>
 /// A call the AI makes that deletes something (or any change, when the user chose to be asked) waits here until the user answers
-/// on the assistant page. No answer within a few minutes counts as no.
+/// on the assistant page. It waits with no time limit: the person allows it, denies it, or chose to allow every action (Options, Assistant). The call
+/// ending (the client went away, or the run was stopped) counts as no.
 /// </summary>
 public sealed class McpApprovals(AssistantSettings settings)
 {
-    private static readonly TimeSpan Patience = TimeSpan.FromMinutes(5);
 
     private readonly object _gate = new();
     private readonly List<ApprovalRequest> _pending = [];
@@ -43,9 +43,7 @@ public sealed class McpApprovals(AssistantSettings settings)
         Changed?.Invoke();
         try
         {
-            using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancel);
-            timeout.CancelAfter(Patience);
-            await using var _ = timeout.Token.Register(() => request.Answer.TrySetResult(false));
+            await using var _ = cancel.Register(() => request.Answer.TrySetResult(false));
             return await request.Answer.Task;
         }
         finally

@@ -279,9 +279,12 @@ public sealed partial class DllExtensions
             failed = _failed.FirstOrDefault(e => e.Name.Equals(name, StringComparison.OrdinalIgnoreCase));
         }
 
-        var isDev = loaded?.Origin == ExtensionSource.Dev || (loaded is null && failed?.Origin == ExtensionSource.Dev);
-        var folder = loaded?.Folder ?? failed?.Folder;
-        if (!isDev || folder is null) return new ImportResult(false, $"'{name}' is not a dev build.");
+        // The dev build is the loaded one, or the one that failed to load. Not the installed copy of the same id, which can be loaded beside a dev
+        // build that failed because of it (and whose folder must never be deleted here)
+        var folder = loaded is { Origin: ExtensionSource.Dev } ? loaded.Folder
+            : failed is { Origin: ExtensionSource.Dev } ? failed.Folder
+            : null;
+        if (folder is null) return new ImportResult(false, $"'{name}' is not a dev build.");
 
         var full = Path.GetFullPath(folder).TrimEnd(Path.DirectorySeparatorChar);
         var inside = _startup.CurrentDevFolders().Any(root =>

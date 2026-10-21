@@ -9,7 +9,7 @@ using MudBlazor;
 namespace Seneschal.Dev;
 
 /// <param name="Services">Include an example of an extension with its own service (kept in the extension's own container).</param>
-public sealed record NewExtension(string Name, string Title, string Group, string Description, string IconKey, bool Services = false);
+public sealed record NewExtension(string Name, string Title, string Group, string Description, string IconKey, bool Services = false, bool Git = false);
 
 /// <summary><see cref="Notes"/> are warnings the user should see (something that could not be done); the message itself is just what happened.</summary>
 public sealed record ScaffoldResult(bool Ok, string Message, string? Folder = null, IReadOnlyList<string>? Notes = null);
@@ -204,9 +204,10 @@ public sealed partial class Scaffolder(DevMode dev, IToolRegistry registry, DllE
 
             </Project>
             """);
-        Write(folder, ".gitignore", "bin/\nobj/\nartifacts/\n.vs/\n*.user\n");
+        Write(folder, ".gitignore", GitInit.GitIgnore);
+        var notes = request.Git && GitInit.Init(folder) is { } note ? new[] { note } : null;
 
-        return new ScaffoldResult(true, $"Created {folder}", folder);
+        return new ScaffoldResult(true, $"Created {folder}", folder, notes);
     }
 
     /// <summary>

@@ -4,7 +4,7 @@ namespace Seneschal.Dev;
 
 /// <summary>
 /// The folder that holds the extension projects, and what is in it. Every project in it is a project of Seneschal with nothing to add: it is listed in
-/// Options, Projects and its builds are watched, so a build loads by itself. Projects from anywhere else are added by hand (Add Project).
+/// Options, Extension Projects and its builds are watched, so a build loads by itself. Projects from anywhere else are added by hand (Add Project).
 /// </summary>
 public static class ProjectsFolder
 {

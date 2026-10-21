@@ -23,13 +23,20 @@ An empty chat shows the Seneschal logo and four starter cards. The first is alwa
 - **History** keeps your last 30 chats. Open one to carry on, even after a restart. **New Chat** starts fresh.
 - Pick the **model** from the header: Default, Opus, Sonnet or Haiku. These are Claude Code's short names, and each means the newest of its kind. Default uses whatever Claude Code is set to.
 
+## Pictures
+
+Give it a picture to look at: paste one (Ctrl+V), drop it on the panel, press **Add image**, or press **Snip the screen**. A message can carry up to four, with words or on their own. The pictures are scaled down in the browser (1568px on the long side) before they are sent to Claude, shown small above the box until you send, and kept as small copies in the history. They are never written anywhere else.
+
+**Snip the screen** captures Seneschal's own window right away, with nothing to choose, then shows it over the whole window so you drag the area you want. Enter keeps it, Esc cancels, and with nothing selected it keeps the whole window. Only the machine Seneschal runs on can do this; when it cannot, the browser's own capture dialog asks which screen, window or tab to take.
+
+Click a picture in the chat to see it large: click again for its own size, arrows move between the pictures of that message, Esc closes it. A chat opened from the history only has the small copy of each picture.
 ## Safety
 
 | What it does | How it is treated |
 | --- | --- |
 | Looks at something (lists, status, logs) | Runs |
 | Changes something that is easy to undo (start, stop, add) | Runs, or asks first when you turn on **Ask before every change** in the settings |
-| Removes or overwrites something | **Always asks**, in a card in the chat. No answer in five minutes counts as no. **Options, Assistant, Always allow actions** turns every question off, this one included, for every MCP client |
+| Removes or overwrites something | **Always asks**, in a card in the chat. It waits for you with no time limit; the call ending counts as no. **Options, Assistant, Always allow actions** turns every question off, this one included, for every MCP client |
 
 Passwords and tokens are never written into the saved history: if one shows up in a chat or in a tool's result, it is replaced with `[hidden]` before the chat is stored. In the live chat it still shows, and it passes through Claude like anything else you type.
 
@@ -57,18 +64,20 @@ The assistant reads Seneschal's extension guide and the design rules, then asks 
 
 | Tool | What it does |
 | --- | --- |
-| `seneschal_ask_user` | Asks you to choose: a card in the panel with the options as rows (and a box for your own answer), and the tool waits for it. You can skip |
+| `seneschal_ask_user` | Asks you to choose: a card in the panel with the options as rows (and a box for your own answer), and the tool waits for it. The assistant tags the option it recommends. You can skip. **Options, Assistant, Questions** chooses what happens: wait for your answer (the default, with no time limit), wait and then use the recommended answer (the card counts down), or use the recommended answer at once. When Seneschal picked the answer, the assistant is told so and says it |
 | `seneschal_instructions_list`, `seneschal_instruction_read`, `seneschal_instruction_update` | Lets it read and change the texts that shape it, its character included. Changing one always asks you first |
 | `seneschal_lesson_add` | Writes down one line it learned from a correction. Lessons are sent with every message and you can edit them in **Options, Instructions** |
 | `seneschal_settings_reset` | Puts the theme, sidebar, icons, favorites and assistant settings back to the defaults at once. Extensions, projects and chats stay. It always asks you first. The same as **Options, About, Reset Settings** |
 | `seneschal_extension_guide`, `seneschal_ui_guidelines`, `seneschal_sdk_reference` | What it reads first: the baseline and the test strategy, the design rules and the SDK |
-| `seneschal_extension_create_from_template` | Creates the starting project from Seneschal's template. The only step that needs Seneschal: after it, development is ordinary, so an AI that can edit files and run `dotnet` (your own Claude Code) just does that |
+| `seneschal_extension_list` | Lists every project it can work on: the ones in the projects folder and the ones you added in Options, Extension Projects, with where each is and what it builds. It looks here first, because a request to make a tool may mean an existing project: it works in a project you name when that is the one in the list, asks you when the name is only similar or it is not clear, and makes a new project only when it really is one (a name that exists is refused) |
+| `seneschal_extension_create_from_template` | Creates the starting project from Seneschal's template, and with `git` a git repository with a .gitignore and a first commit. The only step that needs Seneschal: after it, development is ordinary, so an AI that can edit files and run `dotnet` (your own Claude Code) just does that |
+| `seneschal_extension_delete_project` | Deletes a project of the projects folder: its tools are unloaded and the project moves to `.deleted` there, so you can move it back. You are asked first. It never touches a project you added by hand |
 | `seneschal_extension_check` | Checks the project against the design rules and the SDK without changing it, and returns each finding with its file and line |
 | `seneschal_extension_preview` | Opens the page in a browser, in dark and light, and returns a screenshot of each plus what it found: console errors, failed requests, content wider than the window, the text of the page |
 | `seneschal_extension_files`, `seneschal_extension_read`, `seneschal_extension_write` | For an assistant without file access (the built-in one): reads and writes files, only inside that one project and only text files |
 | `seneschal_extension_build` | For an assistant without a terminal: builds and loads it. It runs the code that was written, so it always asks you first. A compile error goes back to the assistant, which fixes it and builds again |
 
-Projects are kept in `Documents\Seneschal\Projects` (change it in **Options, Projects**, or with `SENESCHAL_EXTENSIONS_DIR`), whether Seneschal is installed or run from source, and never in the Seneschal repository. A build is loaded live. They build against the copy of the Seneschal SDK that the app itself uses, so there is nothing to install. Every feature of the page also becomes a tool for the assistant, and anything that deletes asks first.
+Projects are kept in `Documents\Seneschal\Projects` (change it in **Options, Extension Projects**, or with `SENESCHAL_EXTENSIONS_DIR`), whether Seneschal is installed or run from source, and never in the Seneschal repository. A build is loaded live. They build against the copy of the Seneschal SDK that the app itself uses, so there is nothing to install. Every feature of the page also becomes a tool for the assistant, and anything that deletes asks first.
 
 An extension runs with the same access to your machine as you have, and the assistant writes it, so read what it made before you trust it. Its files are in the project folder.
 

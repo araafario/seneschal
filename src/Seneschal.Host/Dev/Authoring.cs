@@ -3,6 +3,11 @@ using Seneschal.Core;
 
 namespace Seneschal.Dev;
 
+/// <summary>An extension project that can be worked on, and what it builds.</summary>
+public sealed record ProjectInfo(string Name, string Folder, string Source, IReadOnlyList<ProjectBuild> Builds);
+
+/// <summary>An extension a project builds: its id, its title, and the ids of the tools it adds.</summary>
+public sealed record ProjectBuild(string Id, string Title, IReadOnlyList<string> Tools);
 /// <summary>
 /// What the assistant needs to make an extension without an editor: create the project, read and write its files, build it and load it.
 /// Projects live in a folder of the user's own, the same from source and installed: Options (Projects folder), or <c>SENESCHAL_EXTENSIONS_DIR</c>,
@@ -25,11 +30,93 @@ public sealed class Authoring(DotnetSdk sdk, DllExtensions extensions, DevWatche
 
     public ScaffoldResult Create(NewExtension request)
     {
+        // A project of that name that already exists (here or one the user added) is worked in, not made again
+        if (ProjectList().FirstOrDefault(p => p.Name.Equals(request.Name.Trim(), StringComparison.OrdinalIgnoreCase)) is { } existing)
+            return new ScaffoldResult(false, $"A project called {existing.Name} already exists ({existing.Folder}). Work in it, or choose another name", null);
         // The new project is inside the projects folder, whose builds are all watched, so every build of it loads by itself
         return Scaffolder.CreateLocal(Root, request);
     }
 
-    public IReadOnlyList<string> Projects() => [.. ProjectsFolder.Projects(Root).Select(d => Path.GetFileName(d)!)];
+    public IReadOnlyList<string> Projects() => [.. ProjectList().Select(p => p.Name)];
+
+    /// <summary>
+    /// Deletes a project of the projects folder: unloads what it built, then moves it to .deleted in the projects folder (not erased, so it can be moved back).
+    /// A project the user added by hand lives somewhere of their own and is never touched here: it is only stopped being watched (Remove Project).
+    /// </summary>
+    public ScaffoldResult DeleteProject(string name)
+    {
+        var folder = ProjectsFolder.Projects(Root).FirstOrDefault(d => Path.GetFileName(d).Equals((name ?? "").Trim(), StringComparison.OrdinalIgnoreCase));
+        if (folder is null)
+            return new ScaffoldResult(false, $"There is no project called {name} in the projects folder ({Root}). A project that was added by hand is removed with Remove Project, which only stops watching it");
+
+        // The watcher holds the project's build folder open, and a folder that holds one cannot be moved
+        watcher.Release(folder);
+        var prefix = Path.GetFullPath(folder).TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar;
+        foreach (var built in extensions.Loaded.Where(e => Path.GetFullPath(e.Folder).StartsWith(prefix, StringComparison.OrdinalIgnoreCase)).ToList())
+            extensions.UnloadDev(built.Name);
+
+        var trash = Path.Combine(Path.GetFullPath(Root), ".deleted", $"{Path.GetFileName(folder)}-{DateTime.Now:yyyyMMdd-HHmmss}");
+        Directory.CreateDirectory(Path.GetDirectoryName(trash)!);
+        // What was loaded from the project keeps its files open until the unloaded code is collected, so the first tries may need a moment
+        for (var attempt = 0; ; attempt++)
+        {
+            try
+            {
+                Directory.Move(folder, trash);
+                return new ScaffoldResult(true, $"Moved {Path.GetFileName(folder)} to {trash}", trash);
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                if (attempt >= 5) return new ScaffoldResult(false, $"Could not move the project (is it open in an editor or being built?): {ex.Message}");
+                GC.Collect();
+                GC.WaitForPendingFinalizers();
+                Thread.Sleep(300);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Every extension project that can be worked on: the ones in the projects folder, and the ones the user added in Options, Extension Projects (a project
+    /// anywhere on the machine whose build folder is watched). Each says what it builds, so a request such as "add a tool to LoopUp" can be matched to it.
+    /// </summary>
+    public IReadOnlyList<ProjectInfo> ProjectList()
+    {
+        var list = new List<ProjectInfo>();
+        foreach (var folder in ProjectsFolder.Projects(Root)) list.Add(Describe(folder, "Projects folder"));
+        foreach (var folder in AddedProjectFolders())
+            if (!list.Any(p => p.Name.Equals(Path.GetFileName(folder), StringComparison.OrdinalIgnoreCase))) list.Add(Describe(folder, "Added in Options, Extension Projects"));
+        return list;
+    }
+
+    /// <summary>The folders of the projects added by hand: the folder above <c>artifacts/extensions</c> of a watched build folder, when it holds a project file.</summary>
+    private IEnumerable<string> AddedProjectFolders()
+    {
+        foreach (var watched in settings.DevFolders)
+        {
+            string? project;
+            try
+            {
+                var full = Path.GetFullPath(watched).TrimEnd(Path.DirectorySeparatorChar);
+                project = Path.GetFileName(full).Equals("extensions", StringComparison.OrdinalIgnoreCase)
+                    && Path.GetFileName(Path.GetDirectoryName(full) ?? "").Equals("artifacts", StringComparison.OrdinalIgnoreCase)
+                        ? Path.GetDirectoryName(Path.GetDirectoryName(full))
+                        : null;
+            }
+            catch (Exception ex) when (ex is ArgumentException or NotSupportedException or PathTooLongException)
+            {
+                continue;
+            }
+            if (project is not null && Directory.Exists(project) && Directory.GetFiles(project, "*.csproj").Length > 0) yield return project;
+        }
+    }
+
+    private ProjectInfo Describe(string folder, string source)
+    {
+        var builds = extensions.Loaded
+            .Where(e => Path.GetFullPath(e.Folder).StartsWith(Path.GetFullPath(folder).TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase))
+            .Select(e => new ProjectBuild(e.Name, e.Title, e.ToolIds)).ToList();
+        return new ProjectInfo(Path.GetFileName(folder), folder, source, builds);
+    }
 
     public IReadOnlyList<string> Files(string name)
     {
@@ -147,9 +234,10 @@ public sealed class Authoring(DotnetSdk sdk, DllExtensions extensions, DevWatche
             throw new InvalidOperationException("Give the project name only, such as JsonDiff");
         var root = Path.GetFullPath(Root);
         var folder = Path.GetFullPath(Path.Combine(root, name.Trim()));
-        if (!Directory.Exists(folder) || Directory.GetFiles(folder, "*.csproj").Length == 0)
-            throw new InvalidOperationException($"There is no extension project called {name} in {root}");
-        return folder;
+        if (Directory.Exists(folder) && Directory.GetFiles(folder, "*.csproj").Length > 0) return folder;
+        // A project the user added by hand lives wherever it was added from. Only that project's own folder is reached, as for the others
+        if (AddedProjectFolders().FirstOrDefault(d => Path.GetFileName(d).Equals(name.Trim(), StringComparison.OrdinalIgnoreCase)) is { } added) return Path.GetFullPath(added);
+        throw new InvalidOperationException($"There is no extension project called {name}. The projects are: {string.Join(", ", Projects())}");
     }
 
     /// <summary>A file inside the project folder, and a kind of file an extension is made of. Nothing else is ever reached.</summary>

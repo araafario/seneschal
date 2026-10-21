@@ -1,6 +1,14 @@
 {
   "$schema": "https://json.schemastore.org/launchsettings.json",
   "profiles": {
+    "Seneschal (hot reload)": {
+      "commandName": "Executable",
+      "executablePath": "powershell.exe",
+      "commandLineArgs": "-NoProfile -ExecutionPolicy Bypass -File ..\\..\\dev.ps1 -Watch",
+      "workingDirectory": ".",
+      "hotReloadEnabled": false,
+      "launchBrowser": false
+    },
     "http": {
       "commandName": "Project",
       "dotnetRunMessages": true,
@@ -18,13 +26,6 @@
       "environmentVariables": {
         "ASPNETCORE_ENVIRONMENT": "Development"
       }
-    },
-    "Seneschal (copy)": {
-      "commandName": "Executable",
-      "executablePath": "powershell.exe",
-      "commandLineArgs": "-NoProfile -ExecutionPolicy Bypass -File ..\\..\\dev.ps1 -Attached -Copy",
-      "workingDirectory": ".",
-      "launchBrowser": false
     }
   }
 }

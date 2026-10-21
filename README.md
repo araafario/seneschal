@@ -95,13 +95,13 @@ See [the assistant guide](docs/assistant.md) for models, history, safety and usi
 Three ways, from least to most work:
 
 1. **Ask.** Open the assistant and choose *Help me create a new extension*. It asks what the tool should do, writes it, builds it, checks it and loads it.
-2. **Start from a template.** Options, Projects, *New Project*, or `seneschal extension new <Name>`. You get a complete project that already builds.
+2. **Start from a template.** Options, Extension Projects, *New Project*, or `seneschal extension new <Name>`. You get a complete project that already builds.
 3. **Write it.** An extension is a class, a Blazor page and a manifest, built against the [`Seneschal.Sdk`](src/Seneschal.Sdk/README.md) package.
 
 <table>
 <tr>
 <td width="50%"><img src="docs/images/new-project.png" alt="The New Project dialog"></td>
-<td width="50%"><img src="docs/images/options-projects.png" alt="Options, Projects, with several projects loaded"></td>
+<td width="50%"><img src="docs/images/options-projects.png" alt="Options, Extension Projects, with several projects loaded"></td>
 </tr>
 <tr>
 <td><sub><b>New Project.</b> A name, a group, an icon.</sub></td>

@@ -12,7 +12,7 @@ irm https://raw.githubusercontent.com/araafario/seneschal/main/install.ps1 | iex
 
 From a Command Prompt, run `install.cmd` from the repository, or download it and run it. Both do the same thing.
 
-It downloads the newest release, checks its SHA-256, and puts it in `%LOCALAPPDATA%\Programs\Seneschal`. It adds that folder to your PATH and a **Seneschal** shortcut to the Start menu. Running it again updates an existing install: it stops Seneschal, replaces the files and leaves your data alone.
+It downloads the newest release, checks its SHA-256, and puts it in `%LOCALAPPDATA%\Programs\Seneschal`. It adds that folder to your PATH and a **Seneschal** shortcut to the Start menu. It also adds an uninstaller: **Seneschal** in Settings, Apps, Installed apps (and `uninstall.cmd` in the install folder). Running it again updates an existing install: it stops Seneschal, replaces the files and leaves your data alone.
 
 ### The .NET SDK
 
@@ -94,6 +94,8 @@ Your data and settings are never touched. Only a copy made by the installer upda
 Set `SENESCHAL_PORT` to choose a different port, and `SENESCHAL_DATA_DIR` to keep the data somewhere else.
 
 ## Uninstall
+
+The easy way: Settings, Apps, Installed apps, **Seneschal**, Uninstall (or run `uninstall.cmd` in the install folder). It keeps your data. To remove that too, use the script:
 
 ```powershell
 .\install.ps1 -Uninstall            # keeps your data

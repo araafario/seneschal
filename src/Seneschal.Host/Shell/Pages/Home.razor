@@ -19,7 +19,7 @@
             @if (FavoriteTools.Count > 0)
             {
                 <section class="home-group" aria-labelledby="home-favorites">
-                    <h2 class="home-group-title" id="home-favorites"><span class="home-dot" aria-hidden="true"></span><a href="@GroupSlug.FavoritesHref">Favorites</a><span class="home-count">@FavoriteTools.Count</span></h2>
+                    <h2 class="home-group-title" id="home-favorites"><span class="home-dot" aria-hidden="true"></span><a href="@GroupSlug.FavoritesHref">Favorites</a></h2>
                     <ToolGrid Tools="FavoriteTools" />
                 </section>
             }
@@ -28,7 +28,7 @@
             {
                 var id = $"home-group-{GroupSlug.From(group.Key)}";
                 <section class="home-group" aria-labelledby="@id">
-                    <h2 class="@($"home-group-title hue-{GroupIconService.Color(group.Key, Registry.All.Select(t => t.Group))}")" id="@id"><span class="home-dot" aria-hidden="true"></span><a href="@GroupSlug.Href(group.Key)">@group.Key</a><span class="home-count">@group.Count()</span></h2>
+                    <h2 class="@($"home-group-title hue-{GroupIconService.Color(group.Key, Registry.All.Select(t => t.Group))}")" id="@id"><span class="home-dot" aria-hidden="true"></span><a href="@GroupSlug.Href(group.Key)">@group.Key</a></h2>
                     <ToolGrid Tools="group" />
                 </section>
             }

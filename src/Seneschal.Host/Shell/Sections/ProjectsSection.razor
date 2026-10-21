@@ -10,7 +10,7 @@
 @inject IDialogService Dialogs
 @inject ISnackbar Snackbar
 
-<OptionHeader Title="Projects" Description="The extensions you are building. Installed ones are under Extensions">
+<OptionHeader Title="Extension Projects" Description="The extensions you are building. Installed ones are under Extensions">
     <MudButton Variant="Variant.Outlined" StartIcon="@Icons.Material.Outlined.FolderOpen" OnClick="AddAsync" id="add-project">Add Project</MudButton>
     <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Outlined.Add" OnClick="NewAsync" id="new-project">New Project</MudButton>
 </OptionHeader>
@@ -37,7 +37,8 @@
                  Description="Where New Project and the assistant make extensions, outside the Seneschal repository. Leave it empty for the default">
         <div class="sc-form">
             <MudTextField T="string" Value="@Ui.ProjectsFolder" ValueChanged="v => Ui.ProjectsFolder = v" Label="Folder" Placeholder="@Authoring.DefaultRoot"
-                          Variant="Variant.Outlined" Margin="Margin.Dense" id="projects-folder" />
+                          Variant="Variant.Outlined" Margin="Margin.Dense" id="projects-folder"
+                          Adornment="@(NativePicker.Available ? Adornment.End : Adornment.None)" AdornmentIcon="@Icons.Material.Outlined.FolderOpen" AdornmentAriaLabel="Browse" OnAdornmentClick="BrowseProjectsFolderAsync" />
         </div>
     </SettingCard>
     <SettingCard Key="live-reload" Icon="@Icons.Material.Outlined.Sync" Title="Live Reload"
@@ -67,7 +68,7 @@
         var status = !project.BuildFolderExists ? "Not built yet" : project.Loaded.Count > 0 ? "Loaded" : "Built";
         <SettingExpander Key="@($"project:{project.Key}")" Icon="@Icons.Material.Outlined.Code" Title="@project.Name" Description="@(project.ProjectFolder ?? project.BuildFolder)"
                          Open="@(projects.Count <= 3)">
-            <Badge>@if (project.Loaded.Count == 0) { <span class="sc-badge">@status</span> }</Badge>
+            <Badge><span class="@($"sc-badge {(project.Loaded.Count > 0 ? "is-accent" : "")}")">@status</span></Badge>
             <Control>
                 @if (Projects.CanBuild(project))
                 {
@@ -89,17 +90,20 @@
                     <MudMenuItem OnClick="() => Safe(() => Projects.Reveal(project))">Reveal in Explorer</MudMenuItem>
                     @if (project.Removable)
                     {
-                        <MudMenuItem OnClick="() => Safe(() => Projects.StopWatching(project))">Remove Project</MudMenuItem>
+                        <MudMenuItem Class="mi-danger" OnClick="() => Safe(() => Projects.StopWatching(project))">Remove Project</MudMenuItem>
                     }
                     else if (project.Repo is not null)
                     {
-                        <MudMenuItem OnClick="() => DeleteAsync(project.Repo)">Delete Project</MudMenuItem>
+                        <MudMenuItem Class="mi-danger" OnClick="() => DeleteAsync(project.Repo)">Delete Project</MudMenuItem>
+                    }
+                    else if (project.Source == "Projects folder" && project.ProjectFolder is not null)
+                    {
+                        <MudMenuItem Class="mi-danger" OnClick="() => DeleteLocalAsync(project)">Delete Project</MudMenuItem>
                     }
                 </MudMenu>
             </Control>
             <ChildContent>
-                <SettingCard Nested="true" Key="@($"build-folder:{project.Key}")" Title="Builds to"
-                             Description="@(project.BuildFolderExists ? project.BuildFolder : $"{project.BuildFolder} (made by the first build)")" />
+                @* What the project makes. Where it builds to is not repeated: it is the project's folder shown in the title above. *@
                 @foreach (var ext in project.Loaded)
                 {
                     <SettingCard Nested="true" Key="@($"loaded:{ext.Name}")" Icon="@Icons.Material.Outlined.Extension" Title="@ext.Title"
@@ -107,14 +111,16 @@
                         <Control>
                             @if (project.Repo is null)
                             {
-                                <MudButton Size="Size.Small" Variant="Variant.Outlined" OnClick="() => RemoveBuildAsync(ext.Name)">Remove Build</MudButton>
+                                <MudMenu Icon="@Icons.Material.Outlined.MoreVert" Class="sq-btn" AriaLabel="@($"More actions for {ext.Title}")" Dense="true">
+                                    <MudMenuItem OnClick="() => RemoveBuildAsync(ext.Name)">Remove Build</MudMenuItem>
+                                </MudMenu>
                             }
                         </Control>
                     </SettingCard>
                 }
                 @if (project.Loaded.Count == 0)
                 {
-                    <SettingCard Nested="true" Key="@($"empty:{project.Key}")" Title="Nothing loaded yet"
+                    <SettingCard Nested="true" Key="@($"empty:{project.Key}")" Icon="@Icons.Material.Outlined.Extension" Title="Nothing loaded yet"
                                  Description="@(Projects.CanBuild(project) ? "Press Build, or run dotnet build in the project" : "Build the project to load it")" />
                 }
             </ChildContent>
@@ -143,6 +149,12 @@
     }
 
     private void OnChanged() => _ = InvokeAsync(StateHasChanged);
+
+    private async Task BrowseProjectsFolderAsync()
+    {
+        if (await NativePicker.PickFolderAsync(string.IsNullOrWhiteSpace(Ui.ProjectsFolder) ? Authoring.DefaultRoot : Ui.ProjectsFolder) is { } folder)
+            Ui.ProjectsFolder = folder;
+    }
 
     private async Task AddAsync() =>
         await Dialogs.ShowAsync<AddProjectDialog>("Add Project", new DialogOptions { MaxWidth = MaxWidth.Small, FullWidth = true, CloseButton = true });
@@ -209,6 +221,18 @@
         {
             Fail(ex.Message);
         }
+    }
+
+    /// <summary>A project of the projects folder: moved to .deleted there, after the person says yes.</summary>
+    private async Task DeleteLocalAsync(DevProject project)
+    {
+        var name = Path.GetFileName(project.ProjectFolder!.TrimEnd(Path.DirectorySeparatorChar));
+        var tools = project.Loaded.Sum(e => e.ToolIds.Length);
+        var gone = tools == 0 ? "" : $"Its {(tools == 1 ? "tool disappears" : $"{tools} tools disappear")} from the app. ";
+        var confirmed = await Dialogs.ShowMessageBoxAsync("Delete Project", $"Delete {name}? {gone}The project moves to .deleted in the projects folder, so it can be moved back", yesText: "Delete", cancelText: "Cancel");
+        if (confirmed != true) return;
+        var result = Author.DeleteProject(name);
+        if (!result.Ok) Fail(result.Message);
     }
 
     private async Task RemoveBuildAsync(string package)

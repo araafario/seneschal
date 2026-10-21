@@ -26,28 +26,28 @@ artifacts/                  build output only, never source
 .\dev.ps1
 ```
 
-The app project references the extensions of this repo, so building the app builds them. `dev.ps1` builds the app, which also builds the launcher (`SeneschalApp.exe`) into the same folder, then starts it through the launcher, hidden, exactly as an installed copy starts: control it with the `seneschal` command from that folder (`seneschal logs`, `stop`, `restart`), and **Restart App** works by itself. A copy started from a checkout runs as Development, so it has Options, Projects and loads the staged builds in `artifacts/extensions` (shown as **Dev** in Options, Extensions). `dev.ps1 -Attached` runs it in the window instead (`dotnet run`) and starts it again when it exits with code 42.
+The app project references the extensions of this repo, so building the app builds them. `dev.ps1` builds the app, which also builds the launcher (`SeneschalApp.exe`) into the same folder, then starts it through the launcher, hidden, exactly as an installed copy starts: control it with the `seneschal` command from that folder (`seneschal logs`, `stop`, `restart`), and **Restart App** works by itself. A copy started from a checkout runs as Development, so it has Options, Extension Projects and loads the staged builds in `artifacts/extensions` (shown as **Dev** in Options, Extensions). `dev.ps1 -Attached` runs it in the window instead (`dotnet run`) and starts it again when it exits with code 42.
 
 ```powershell
 dotnet build Seneschal.slnx
 ```
 
-A copy of Seneschal that runs from the build folder (`seneschal start` on a `bin\Release` build) is stopped for you before the next build of the app, so it does not lock the files being replaced. A copy running from somewhere else, such as an installed one, is left alone, and so is a Seneschal started by `dev.ps1`: stop that one before a full build, or build one extension alone.
+Any Seneschal that runs from the folder a build writes to (`bin\Debug\net10.0` or `bin\Release\net10.0`: one started with `seneschal start`, `dev.ps1` or `dotnet watch`) is stopped before the next build of the app (`StopRunningCopy` in `Seneschal.Host.csproj`), so it does not lock the files being replaced. A copy running from somewhere else, such as an installed one, is left alone. So a build you only want to try (a script, an assistant) must not be of the checkout you are running: build a copy of it, or build one extension alone.
 
-**Visual Studio.** Pressing F5 on the `https` profile runs `bin\Debug\net10.0\Seneschal.exe`, which holds the build files open until you stop debugging. Pick the **Seneschal (copy)** profile instead (or run `.\dev.ps1 -Attached -Copy`): it builds, copies the output to `artifacts\run` and runs that copy, so you can rebuild at any time. Restart App builds and copies again.
+**Visual Studio.** The first profile, **Seneschal (hot reload)**, is the one F5 runs (or run `.\dev.ps1 -Watch`): it starts `dotnet watch` with hot reload, so Razor, CSS and most C# edits apply without a restart and the rest rebuilds and restarts by itself. The `http` and `https` profiles run `bin\Debug\net10.0\Seneschal.exe`, which holds the build files open until you stop debugging.
 
-## Options, Projects
+## Options, Extension Projects
 
-**Options, Projects** is for whoever makes extensions (it shows when the .NET SDK is installed or the app runs from source). Live Reload lives there: a project builds into its own `artifacts\extensions` folder, Seneschal watches that folder and loads each build the moment it finishes, with no import and no restart.
+**Options, Extension Projects** is for whoever makes extensions (it shows when the .NET SDK is installed or the app runs from source). Live Reload lives there: a project builds into its own `artifacts\extensions` folder, Seneschal watches that folder and loads each build the moment it finishes, with no import and no restart.
 
-- **New Project** creates a complete project in the projects folder (`Documents/Seneschal/Projects`, changeable in Options, Projects) and watches it. Every project in the projects folder is listed and watched by itself, with nothing to add: a project from somewhere else is added by hand with **Add Project**. Extensions you installed (a `.snx`, such as LoopUp) are not projects: they are under **Options, Extensions**. It is never made inside this repo, and it builds against the SDK copy in `.seneschal/` of that folder.
+- **New Project** creates a complete project in the projects folder (`Documents/Seneschal/Projects`, changeable in Options, Extension Projects) and watches it. Every project in the projects folder is listed and watched by itself, with nothing to add: a project from somewhere else is added by hand with **Add Project**. Extensions you installed (a `.snx`, such as LoopUp) are not projects: they are under **Options, Extensions**. It is never made inside this repo, and it builds against the SDK copy in `.seneschal/` of that folder.
 - **Add Project** watches a project you already have.
 - **Build** runs `dotnet build`, shows compiler errors and loads the result live. **Remove Build** unloads it.
 - **Delete Project** (projects already committed in this repo only) asks first, then moves the project to `.deleted/extensions/`, removes it from the solution and unloads it.
 
 ## Working safely
 
-Test anything destructive or anything that changes the repo **on a copy**, never on the real one: Options, Projects, moving folders, edits to `Seneschal.slnx` or `Seneschal.Host.csproj`. Run the copy on its own port with `SENESCHAL_DATA_DIR` pointing at a scratch folder. Use throwaway containers and projects for runner tests, and never start, stop or kill your own services or your own running Seneschal.
+Test anything destructive or anything that changes the repo **on a copy**, never on the real one: Options, Extension Projects, moving folders, edits to `Seneschal.slnx` or `Seneschal.Host.csproj`. Run the copy on its own port with `SENESCHAL_DATA_DIR` pointing at a scratch folder. Use throwaway containers and projects for runner tests, and never start, stop or kill your own services or your own running Seneschal.
 
 ## The UI
 

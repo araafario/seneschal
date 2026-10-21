@@ -22,7 +22,7 @@ public sealed class AssistantPrompt(IToolRegistry tools, ExtensionSettings setti
         text.AppendLine("# Right now");
         text.AppendLine($"- Date: {DateTime.Now.ToString("dddd d MMMM yyyy, HH:mm", CultureInfo.InvariantCulture)}");
         text.AppendLine($"- MCP address: {address.Url ?? "not listening yet"} (setup for other clients: Options, MCP)");
-        text.AppendLine($"- Seneschal {Cli.EngineMode.Version}{(dev.Enabled ? ", run from source (Options, Projects and dev builds of extensions are available)" : "")}");
+        text.AppendLine($"- Seneschal {Cli.EngineMode.Version}{(dev.Enabled ? ", run from source (Options, Extension Projects and dev builds of extensions are available)" : "")}");
         text.AppendLine(sdk.Available
             ? "- Making extensions: possible, the .NET SDK is installed (seneschal_extension_guide, _create_from_template, _check, _preview, and _files, _read, _write, _build for an assistant without file access)"
             : "- Making extensions: not yet, the .NET SDK is missing. If asked, call seneschal_extension_guide: it tells the person to run `seneschal dev install`");

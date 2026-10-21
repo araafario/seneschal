@@ -8,6 +8,11 @@
     --w-home: 1280px; --w-aside: 280px; --card-min: 280px; --h-nav-sub: 32px; --fab-clear: 96px; --fs-hero: 2rem;
 }
 
+/* The room kept clear of the assistant button is only needed when the page is longer than the window: a page that fits has nothing to scroll to, so a scrollbar
+   there would scroll to empty space. A small script (App.razor) sets fab-fits on the page that fits. */
+html.fab-fits { --fab-clear: 0px; }
+
+.mud-layout { font-family: var(--font-ui, 'Segoe UI Variable', 'Segoe UI', system-ui, sans-serif); }
 html, body {
     font-family: 'Segoe UI Variable', 'Segoe UI', system-ui, sans-serif;
     font-size: var(--fs-body);
@@ -59,13 +64,17 @@ a { color: inherit; }
 .app-drawer, .app-main { transition: width .22s ease, margin-left .22s ease, padding-left .22s ease !important; }
 .app-drawer .mud-drawer-content { display: flex; flex-direction: column; height: 100%; }
 .drawer-scroll { flex: 1 1 auto; min-height: 0; overflow-y: auto; overflow-x: hidden; }
-.drawer-footer.mud-navmenu { flex: none; padding-bottom: 8px; }
+/* Options at the foot of the sidebar keeps 12px under it. It needs the three classes: .app-nav.mud-navmenu (padding: 0 8px, further down) is as specific as two, and would reset the bottom to 0 */
+.app-nav.drawer-footer.mud-navmenu { flex: none; padding-bottom: var(--gap-3); }
+/* ...and the same 12px between the hairline above it and the button, so it sits in a box of equal space above and below */
+.app-nav.drawer-footer .mud-divider { margin: var(--gap-1) 0 var(--gap-3); }
 /* ===== Options and every settings page (docs/ui-guidelines.md, Settings pages) =====
    Layout: a list of sections on the left (grouped), the picked section on the right, at most 920px wide so lines stay readable.
    A section is a head (title, one line, main actions), group headings, and setting cards. Under 800px the list runs along the top. */
 .opt-layout { display: grid; grid-template-columns: 232px minmax(0, 920px); gap: var(--gap-5); align-items: start; }
 .opt-nav { display: flex; flex-direction: column; gap: 2px; position: sticky; top: var(--gap-4); }
-.opt-nav-group { margin: var(--gap-4) var(--gap-3) var(--gap-1); font-size: var(--fs-small); font-weight: 600; color: var(--fg-dim); }
+/* A group label starts where the icons of its rows start (the same 12px), has room above it to set the group apart and sits close to its own rows */
+.opt-nav-group { margin: var(--gap-5) var(--gap-3) var(--gap-2); font-size: var(--fs-small); font-weight: 600; color: var(--fg-dim); }
 .opt-nav-group:first-child { margin-top: 0; }
 .opt-nav-item { display: flex; align-items: center; gap: var(--gap-3); height: var(--h-ctl); padding: 0 var(--gap-3); border-radius: 4px; color: var(--fg); text-decoration: none; font-size: var(--fs-body); }
 .opt-nav-item:hover { background: var(--hover); }
@@ -103,6 +112,8 @@ a { color: inherit; }
 .sc-desc { font-size: var(--fs-small); color: var(--fg-dim); line-height: 1.4; overflow-wrap: anywhere; }
 .sc-control { flex: none; display: flex; align-items: center; gap: var(--gap-2); }
 .sc-body { padding: 0 var(--gap-4) var(--gap-4); }
+/* A card whose content is empty for now (a field that only shows for one choice) has no room under its row */
+.sc-body:empty { display: none; }
 .sc-form { display: flex; flex-direction: column; gap: var(--gap-3); }
 .sc.is-muted .sc-text, .sc.is-muted .sc-icon { opacity: .5; }
 .sc-badge { display: inline-block; margin-left: var(--gap-2); padding: 0 var(--gap-2); border: 1px solid var(--border); border-radius: 999px; font-size: .75rem; font-weight: 400; line-height: 1.5; color: var(--fg-dim); vertical-align: 1px; }
@@ -115,6 +126,9 @@ a { color: inherit; }
 .sc.sc-error .sc-icon { color: var(--bad); }
 .sc-badge.is-bad { color: var(--bad); border-color: var(--bad); }
 .sc-select.mud-input-control { width: 220px; }
+.sc-select-wide.mud-input-control { width: 300px; }
+/* The item of a menu that removes something is the last one and in the error color */
+.mud-menu-item.mi-danger, .mud-menu-item.mi-danger .mud-typography { color: var(--bad); }
 .sc-control-spacer { flex: none; width: var(--h-ctl); height: var(--h-ctl); }
 .sc-mono .sc-title { font-family: Consolas, monospace; font-size: var(--fs-body); }
 .opt-group-icon { display: flex; align-items: center; gap: var(--gap-2); }
@@ -123,7 +137,11 @@ a { color: inherit; }
 .sc-nested { border: 0; border-top: 1px solid var(--card-border); border-radius: 0; box-shadow: none; background: transparent; }
 .sx-body { border-top: 1px solid var(--card-border); }
 .sx-body > .sc-nested:first-child { border-top: 0; }
-.sx-body .sc-row { padding-left: calc(var(--gap-4) + var(--gap-1)); min-height: 48px; }
+/* A row inside an expander starts where the title of the row above it starts: its icon is under the parent's text, not under the parent's icon.
+   The parent's text begins after its padding, its 24px icon column and the gap; the icon glyph sits about 3px inside its column. A row with no icon of its own
+   starts its text there. */
+.sx-body .sc-row { padding-left: calc(var(--gap-4) + 24px + var(--gap-3) - 3px); min-height: 48px; }
+.sx-body .sc-row:not(:has(.sc-icon)) { padding-left: calc(var(--gap-4) + 24px + var(--gap-3)); }
 .sx-toggle { flex: 1; min-width: 0; padding: 0; border: 0; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; }
 .sx-toggle:focus-visible, .sx-chevron:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 4px; }
 .sx-chevron { flex: none; display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; padding: 0; border: 0; border-radius: 4px; background: none; color: var(--fg-dim); cursor: pointer; transition: transform .15s; }
@@ -223,7 +241,7 @@ a { color: inherit; }
 /* Group header = link to the group page; the chevron is a separate 36x36 button (instant, no animation) that only
    expands/collapses. Outlined chevron: "<" when collapsed, "v" when expanded. */
 .nav-group-row { position: relative; }
-.nav-group-row .mud-nav-link { padding-right: 64px !important; }
+.nav-group-row .mud-nav-link { padding-right: 40px !important; }
 .group-chevron {
     position: absolute; right: 0; top: 1px; width: 36px; height: 36px; padding: 0;
     display: flex; align-items: center; justify-content: center;
@@ -236,7 +254,6 @@ a { color: inherit; }
 .app-nav .group-items { margin: 0 0 var(--gap-1) 17px; border-left: 1px solid var(--border); }
 .app-nav .group-items .mud-nav-link { height: var(--h-nav-sub); padding-left: 12px !important; padding-right: 8px !important; }
 .app-nav .group-items .mud-nav-link .mud-nav-link-text { margin-left: 10px; }
-.group-count { position: absolute; right: 36px; top: 1px; height: 36px; display: flex; align-items: center; font-size: var(--fs-small); color: var(--fg-dim); font-variant-numeric: tabular-nums; pointer-events: none; }
 .group-chevron:focus-visible, .app-nav .mud-nav-link:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
 /* Every sidebar label has the same weight: group headers and the active item are not bolder than the rest */
 .app-nav .mud-nav-link, .app-nav .mud-nav-link .mud-nav-link-text { font-weight: 400 !important; }
@@ -262,6 +279,8 @@ a { color: inherit; }
 
 /* Home: the tool groups at the left, onboarding in an aside that stays in view however many tools there are. One column when the window is narrow */
 .app-main { background: var(--main-bg); color: var(--fg); min-height: 100vh; position: relative; isolation: isolate; }
+/* The box around the page. Things placed against the page (the glow behind Home) are placed against this, so they are as wide as the page and not as wide as the visible part */
+.app-main-inner { position: relative; min-height: inherit; }
 .home-page.mud-container { max-width: var(--w-home); }
 /* The one decoration of the app: a full-width glow behind the Home head in the colors of the logo (the navy coat, the crimson cape, the gold trim). It belongs to the page, not to the content column, so it never shows an edge. Static, it fades out inside 380px, and it is off in forced colors */
 .home-page.mud-container::before { content: ""; position: absolute; z-index: -1; top: 0; left: 0; right: 0; height: 380px; pointer-events: none;
@@ -282,7 +301,6 @@ a { color: inherit; }
 .home-group-title a:hover { text-decoration: underline; }
 .home-group-title a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 4px; }
 .home-dot { flex: none; align-self: center; width: 8px; height: 8px; border-radius: 50%; background: var(--hue, var(--accent)); }
-.home-count { font-size: var(--fs-small); font-weight: 400; color: var(--fg-dim); font-variant-numeric: tabular-nums; }
 .home-aside { display: flex; flex-direction: column; gap: var(--gap-5); position: sticky; top: var(--gap-4); max-height: calc(100vh - var(--gap-5)); overflow-y: auto; }
 @media (max-width: 1100px) {
     .home-layout { grid-template-columns: minmax(0, 1fr); }
@@ -297,7 +315,8 @@ a { color: inherit; }
 .home-row-title { font-size: var(--fs-body); font-weight: 600; color: var(--fg); }
 .home-row-detail { font-size: var(--fs-small); color: var(--fg-dim); line-height: 1.4; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 /* The page frame (PageShell): the same width, padding and title bar on every page except the welcome page */
-.page-shell.mud-container { padding: var(--gap-4) var(--gap-5) var(--fab-clear); }
+/* 24px under the last thing on a page, or the room for the assistant button when that is more and the page is longer than the window (see --fab-clear) */
+.page-shell.mud-container { padding: var(--gap-4) var(--gap-5) max(var(--gap-5), var(--fab-clear)); }
 .page-header { display: flex; align-items: center; gap: var(--gap-3); min-height: 44px; }
 .page-header > .mud-icon-root { font-size: 1.875rem; flex: none; }
 .page-title { font-weight: 600; min-width: 0; }
@@ -484,7 +503,28 @@ html.nav-loading::before { opacity: 1; transition-delay: 0s; animation: nav-slid
 @media (prefers-reduced-motion: reduce) { .as-launcher.is-opening .as-launcher-icon::before, .as-launcher.is-busy .as-launcher-icon::before { animation-duration: 2.4s; } }
 
 .as-panel { position: fixed; right: 24px; bottom: 24px; z-index: 1100; width: min(420px, calc(100vw - 32px)); height: min(520px, calc(100vh - 48px)); display: flex; flex-direction: column; border: 1px solid var(--border); border-radius: 6px; background: var(--drawer-bg); color: var(--fg); box-shadow: 0 8px 32px rgba(0,0,0,.35); overflow: hidden; outline: 0; }
-.as-head { flex: none; display: flex; align-items: center; gap: 4px; height: 48px; padding: 0 6px 0 12px; border-bottom: 1px solid var(--border); }
+/* Docked: the panel runs the full height at the right and the page beside it keeps its own scroll, narrower by the panel's width. Too narrow a window keeps the floating card */
+:root { --w-asst: clamp(380px, 32vw, 560px); }
+@media (min-width: 900px) {
+    .as-panel.is-sidebar { top: 0; right: 0; bottom: 0; width: var(--w-asst); height: auto; border-width: 0 0 0 1px; border-radius: 0; box-shadow: none; }
+    /* The middle (between the navigation and the panel) is a scroll area of its own, so its scrollbars sit under it and not under the whole window.
+       The page in it keeps the width it has without the panel and does not reflow: what is cut off is reached by scrolling sideways */
+    body:has(.as-panel.is-sidebar) .app-main { margin-right: var(--w-asst); height: 100vh; min-height: 0; overflow: auto; }
+    body:has(.as-panel.is-sidebar) .app-main-inner { min-width: calc(100vw - 300px); }
+    body:has(.as-panel.is-sidebar) .app-main.is-mini .app-main-inner { min-width: calc(100vw - 52px); }
+    body:has(.as-panel.is-sidebar) .as-launcher { display: none; }
+}
+/* The page itself never scrolls sideways: a tooltip or menu that opens past the window's edge would otherwise add scrollbars, which shift everything fixed at the right (the docked panel) and make the thing under the pointer blink. Wide content scrolls in its own box; the docked page's sideways scroll is on .app-main */
+html, body { overflow-x: hidden; }
+.as-resizer { position: absolute; z-index: 2; top: 0; bottom: 0; left: -3px; width: 7px; cursor: col-resize; touch-action: none; }
+.as-resizer::after { content: ""; position: absolute; top: 0; bottom: 0; left: 3px; width: 1px; background: transparent; transition: background .12s ease, width .12s ease, left .12s ease; }
+.as-resizer:hover::after, body.as-resizing .as-resizer::after { left: 2px; width: 3px; background: color-mix(in srgb, var(--accent) 55%, transparent); }
+.as-resizer:focus-visible { outline: 0; }
+.as-resizer:focus-visible::after { left: 2px; width: 3px; background: var(--accent); }
+body.as-resizing { cursor: col-resize; user-select: none; }
+body.as-resizing .app-main { transition: none !important; }
+.as-panel:not(.is-sidebar) .as-resizer { display: none; }
+.as-head { flex: none; display: flex; align-items: center; gap: 4px; height: 48px; padding: 0 var(--gap-3); border-bottom: 1px solid var(--border); }
 .as-head .mud-icon-button { color: var(--fg-dim); }
 .as-head .mud-icon-button:hover { color: var(--fg); }
 .as-head-icon { flex: none; display: grid; place-items: center; width: 28px; height: 28px; margin-right: 4px; border-radius: 6px; background: color-mix(in srgb, var(--accent) 16%, transparent); color: var(--accent); }
@@ -501,19 +541,51 @@ html.nav-loading::before { opacity: 1; transition-delay: 0s; animation: nav-slid
 .as-progress.mud-progress-linear { height: 2px; }
 .as-loading { padding: 16px; display: flex; flex-direction: column; gap: 8px; }
 
-.as-messages { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: var(--gap-3); padding: var(--gap-3) var(--gap-3) var(--gap-2); }
+/* The conversation. Text sits 24px from the panel's edges (the composer's own text is on the same line: 12px margin, 1px border, 12px padding). A turn is a
+   message and what answers it: 12px between the parts of a turn, 24px between turns. */
+.as-messages { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: var(--gap-3); padding: var(--gap-4) var(--gap-5) var(--gap-2); }
+/* Nothing in the conversation shrinks to make room: a flex item that clips its content (overflow other than visible) may shrink below its content, which squashed the tool cards of a long chat. The list scrolls instead. */
+.as-messages > * { flex: none; }
 .as-row { display: flex; }
 .as-row-user { justify-content: flex-end; }
-.as-user { max-width: 85%; padding: 6px 10px; border-radius: 6px; background: var(--active); font-size: var(--fs-body); line-height: 1.5; white-space: pre-wrap; overflow-wrap: anywhere; }
+.as-row-user:not(:first-child) { margin-top: var(--gap-3); }
+/* The person's message: a tinted block, the corner at the sender's side tighter. Never the accent color */
+.as-user { max-width: 85%; padding: var(--gap-2) var(--gap-3); border-radius: 8px 8px 2px 8px; background: var(--active); font-size: var(--fs-body); line-height: 1.5; white-space: pre-wrap; overflow-wrap: anywhere; }
 .as-row-claude { position: relative; flex-direction: column; align-items: flex-start; }
-.as-claude { font-size: var(--fs-body); line-height: 1.5; overflow-wrap: anywhere; max-width: 100%; }
-.as-claude p { margin: 0 0 8px; }
-.as-claude p:last-child, .as-claude ul:last-child { margin-bottom: 0; }
-.as-claude ul { margin: 0 0 8px; padding-left: 20px; }
+.as-claude { font-size: var(--fs-body); line-height: 1.55; overflow-wrap: anywhere; max-width: 100%; }
+.as-claude p { margin: 0 0 var(--gap-2); }
+.as-claude p:last-child, .as-claude ul:last-child, .as-claude ol:last-child { margin-bottom: 0; }
+.as-claude b { font-weight: 600; }
+.as-claude .as-h { margin: var(--gap-3) 0 var(--gap-1); font-size: var(--fs-row); font-weight: 600; line-height: 1.35; }
+.as-claude .as-h:first-child { margin-top: 0; }
+.as-claude ul, .as-claude ol { margin: 0 0 var(--gap-2); padding-left: var(--gap-5); }
+.as-claude li { margin: 0 0 var(--gap-1); padding-left: var(--gap-1); }
+.as-claude li:last-child { margin-bottom: 0; }
+.as-claude li::marker { color: var(--fg-dim); }
+.as-claude a { color: var(--accent); text-decoration: none; }
+.as-claude a:hover { text-decoration: underline; }
 .as-claude code { font-family: Consolas, monospace; font-size: .8125rem; padding: 1px 5px; border-radius: 4px; background: var(--terminal); }
 .as-code { margin: 4px 0 8px; padding: 8px 12px; border-radius: 4px; background: var(--terminal); font-family: Consolas, monospace; font-size: .8125rem; overflow-x: auto; }
-.as-tool { border: 1px solid var(--border); border-radius: 4px; font-size: var(--fs-small); }
-.as-tool summary { display: flex; align-items: center; gap: var(--gap-2); height: 32px; padding: 0 8px; cursor: pointer; list-style: none; min-width: 0; }
+.as-tool { border: 1px solid var(--card-border); border-radius: 6px; background: var(--card); font-size: var(--fs-small); overflow: clip; }
+.as-tool + .as-tool { margin-top: calc(var(--gap-1) * -1); }
+/* A question: the option the assistant recommends is tagged, and when Seneschal will pick it by itself, the card says what and when */
+.as-option-rec { margin-left: var(--gap-2); padding: 0 var(--gap-2); border: 1px solid var(--accent); border-radius: 999px; color: var(--accent); font-size: .6875rem; font-weight: 400; vertical-align: 1px; }
+.as-auto { margin-top: var(--gap-2); font-size: var(--fs-small); color: var(--fg-dim); }
+.as-auto b { color: var(--fg); font-weight: 600; }
+.as-countdown { font-variant-numeric: tabular-nums; }
+/* A run of tool calls is one card: its line says what is running or how many were used, the chevron opens the list of compact lines */
+.as-group > summary .as-group-chevron.mud-icon-root { flex: none; margin-left: auto; width: 18px; height: 18px; color: var(--fg-dim); transition: transform .15s; }
+.as-group[open] > summary .as-group-chevron.mud-icon-root { transform: rotate(180deg); }
+.as-group-failed { flex: none; color: var(--bad); font-weight: 600; }
+/* A group with a failure is marked on its own line only: the calls inside keep their own state, so only the ones that failed are red */
+.as-group-bad { border-color: color-mix(in srgb, var(--bad) 50%, transparent); }
+.as-group-bad > summary .as-tool-icon.mud-icon-root { color: var(--bad); }
+.as-group-list { border-top: 1px solid var(--card-border); }
+.as-group-list .as-tool { margin: 0; border: 0; border-radius: 0; background: transparent; }
+.as-group-list .as-tool + .as-tool { border-top: 1px solid var(--card-border); }
+.as-group-list .as-tool summary { height: 28px; }
+.as-group-list .as-tool-error { border-color: var(--card-border); }
+.as-tool summary { display: flex; align-items: center; gap: var(--gap-2); height: 36px; padding: 0 var(--gap-3); cursor: pointer; list-style: none; min-width: 0; }
 .as-tool summary::-webkit-details-marker { display: none; }
 .as-tool summary:hover { background: var(--hover); }
 .as-tool-name { font-weight: 600; white-space: nowrap; }
@@ -521,8 +593,8 @@ html.nav-loading::before { opacity: 1; transition-delay: 0s; animation: nav-slid
 .as-tool-icon.mud-icon-root { width: 16px; height: 16px; color: var(--ok); }
 .as-tool-error { border-color: color-mix(in srgb, var(--bad) 50%, transparent); }
 .as-tool-error .as-tool-icon.mud-icon-root { color: var(--bad); }
-.as-tool-label { padding: 0 8px; font-size: .75rem; color: var(--fg-dim); }
-.as-tool-text { margin: 4px 8px 8px; padding: 8px; border-radius: 4px; background: var(--terminal); font-family: Consolas, monospace; font-size: .75rem; white-space: pre-wrap; overflow-wrap: anywhere; max-height: 200px; overflow-y: auto; }
+.as-tool-label { padding: var(--gap-1) var(--gap-3) 0; font-size: .75rem; color: var(--fg-dim); }
+.as-tool-text { margin: 4px 12px 12px; padding: 8px; border-radius: 4px; background: var(--terminal); font-family: Consolas, monospace; font-size: .75rem; white-space: pre-wrap; overflow-wrap: anywhere; max-height: 200px; overflow-y: auto; }
 .as-error { display: flex; align-items: flex-start; gap: 8px; padding: 8px 12px; border-radius: 4px; font-size: .8125rem; white-space: pre-wrap; color: var(--bad); background: color-mix(in srgb, var(--bad) 11%, transparent); border: 1px solid color-mix(in srgb, var(--bad) 38%, transparent); }
 .as-working { display: flex; align-items: center; gap: 8px; font-size: .8125rem; color: var(--fg-dim); }
 .as-dot { flex: none; width: 8px; height: 8px; border-radius: 50%; background: var(--warn); animation: as-pulse 1s ease-in-out infinite; }
@@ -533,7 +605,8 @@ html.nav-loading::before { opacity: 1; transition-delay: 0s; animation: nav-slid
 .as-empty-title { font-size: 1.125rem; font-weight: 600; line-height: 1.3; }
 .as-empty-sub { margin-top: 4px; font-size: var(--fs-body); color: var(--fg-dim); line-height: 1.4; }
 .as-suggest { margin-top: var(--gap-4); display: grid; grid-template-columns: 1fr 1fr; gap: var(--gap-2); }
-.as-suggestion { display: grid; grid-template-columns: auto 1fr; grid-template-rows: auto auto; column-gap: 10px; row-gap: 2px; align-items: start; text-align: left; padding: 10px 12px; border: 1px solid var(--border); border-radius: 6px; background: transparent; color: var(--fg); font: inherit; cursor: pointer; transition: background .12s, border-color .12s; }
+/* The cards of a row are the same height, so the extra height stays at the bottom (align-content) and the source line sits the same few px under the title in every card */
+.as-suggestion { display: grid; grid-template-columns: auto 1fr; grid-template-rows: auto auto; column-gap: 10px; row-gap: var(--gap-1); align-content: start; align-items: start; text-align: left; padding: 10px 12px; border: 1px solid var(--border); border-radius: 6px; background: transparent; color: var(--fg); font: inherit; cursor: pointer; transition: background .12s, border-color .12s; }
 .as-suggestion-icon.mud-icon-root { grid-row: 1 / span 2; width: 20px; height: 20px; margin-top: 1px; color: var(--accent); }
 .as-suggestion-text { font-size: var(--fs-body); line-height: 1.3; font-weight: 500; }
 .as-suggestion-tool { font-size: var(--fs-small); color: var(--fg-dim); }
@@ -570,9 +643,68 @@ html.nav-loading::before { opacity: 1; transition-delay: 0s; animation: nav-slid
 .as-other::placeholder { color: var(--placeholder); }
 .as-approval-actions { margin-top: 8px; display: flex; justify-content: flex-end; gap: 8px; }
 
-.as-composer { flex: none; display: flex; align-items: flex-end; gap: var(--gap-2); margin: 0 var(--gap-3) var(--gap-3); padding: 4px 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--card); transition: border-color .12s; }
+.as-composer { flex: none; display: flex; flex-direction: column; margin: 0 var(--gap-3) var(--gap-3); padding: 4px 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--card); transition: border-color .12s, background .12s; }
+.as-composer-row { display: flex; align-items: flex-end; gap: var(--gap-2); }
+/* The pictures about to be sent: small, in a row above the text, each with a visible Remove */
+.as-attach { display: none; flex-wrap: wrap; gap: var(--gap-2); padding: var(--gap-2) 0 var(--gap-1); }
+.as-composer.has-images .as-attach { display: flex; }
+.as-thumb { position: relative; width: 56px; height: 56px; border: 1px solid var(--border); border-radius: 6px; overflow: hidden; }
+.as-thumb { background: var(--active); }
+.as-thumb img { display: block; width: 100%; height: 100%; object-fit: contain; }
+.as-thumb-x { position: absolute; top: 2px; right: 2px; display: grid; place-items: center; width: 20px; height: 20px; padding: 0; border: 0; border-radius: 50%; background: rgba(0,0,0,.65); color: #fff; cursor: pointer; }
+.as-thumb-x:hover { background: rgba(0,0,0,.85); }
+.as-thumb-x:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.as-note { align-self: center; font-size: var(--fs-small); color: var(--fg-dim); }
+/* Add image and Snip, at the right end of the text box (the text keeps the line of the messages above) */
+.as-tool-btn { flex: none; display: grid; place-items: center; width: 28px; height: 28px; margin-bottom: var(--gap-1); padding: 0; border: 0; border-radius: 4px; background: transparent; color: var(--fg-dim); cursor: pointer; }
+.as-tool-btn:hover:not(:disabled) { background: var(--hover); color: var(--fg); }
+.as-tool-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.as-tool-btn:disabled { opacity: .45; cursor: default; }
+.as-tool-btn .mud-icon-root { width: 20px; height: 20px; }
+.as-composer.is-drop { border-color: var(--accent); background: var(--active); }
+/* The pictures of a message of the person */
+.as-user-images { display: flex; flex-wrap: wrap; gap: var(--gap-2); }
+.as-user-images:not(:last-child) { margin-bottom: var(--gap-2); }
+.as-user-image { display: block; max-width: 100%; max-height: 180px; border-radius: 6px; cursor: zoom-in; }
+.as-user-image:hover { opacity: .9; }
+.as-user-image:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+/* The tooltips are hidden while the window is captured, so they are not in the picture */
+.is-snipping .mud-tooltip, .is-snipping .mud-popover { visibility: hidden !important; }
+/* The viewer: a picture large over the whole window (margin as for .as-snip) */
+.as-view { position: fixed; inset: 0; margin: 0 !important; z-index: 3000; display: flex; flex-direction: column; background: rgba(0,0,0,.86); color: #fff; animation: as-view-in .16s ease-out; }
+.as-view-bar { flex: none; display: flex; align-items: center; gap: var(--gap-2); padding: var(--gap-2) var(--gap-4); }
+.as-view-count { font-size: var(--fs-body); }
+.as-view-gap { flex: 1; }
+.as-view-btn, .as-view-nav { display: grid; place-items: center; border: 0; border-radius: 50%; background: rgba(255,255,255,.12); color: #fff; cursor: pointer; }
+.as-view-btn { width: 36px; height: 36px; }
+.as-view-nav { flex: none; width: 40px; height: 40px; }
+.as-view-btn:hover, .as-view-nav:hover { background: rgba(255,255,255,.24); }
+.as-view-btn:focus-visible, .as-view-nav:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+.as-view-stage { flex: 1; min-height: 0; display: flex; align-items: center; gap: var(--gap-3); padding: 0 var(--gap-4); }
+.as-view-scroll { flex: 1; min-width: 0; height: 100%; overflow: auto; display: flex; }
+.as-view-img { margin: auto; display: block; max-width: 100%; max-height: 100%; object-fit: contain; border-radius: 4px; cursor: zoom-in; user-select: none; animation: as-view-img .16s ease-out; }
+.as-view.is-actual .as-view-img { max-width: none; max-height: none; cursor: grab; }
+.as-view-note { flex: none; min-height: var(--gap-6); padding: var(--gap-2) var(--gap-4); text-align: center; font-size: var(--fs-body); opacity: .8; }
+@keyframes as-view-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes as-view-img { from { transform: scale(.97); } to { transform: none; } }
+@media (prefers-reduced-motion: reduce) { .as-view, .as-view-img { animation: none; } }
+/* Snip: the captured screen over the whole window, a bar with the choice, a rectangle to drag */
+/* margin: MudBlazor gives the direct children of its layout the width of the drawer as a left margin, which would leave the sidebar uncovered */
+.as-snip { position: fixed; inset: 0; margin: 0 !important; z-index: 3000; display: flex; flex-direction: column; background: rgba(0,0,0,.78); }
+.as-snip-bar { flex: none; display: flex; align-items: center; gap: var(--gap-3); padding: var(--gap-2) var(--gap-4); background: var(--drawer-bg); border-bottom: 1px solid var(--border); color: var(--fg); }
+.as-snip-hint { font-size: var(--fs-body); }
+.as-snip-gap { flex: 1; }
+.as-snip-bar button { height: var(--h-ctl-sm); padding: 0 var(--gap-3); border-radius: 4px; font: inherit; font-size: var(--fs-body); font-weight: 600; cursor: pointer; }
+.as-snip-cancel { border: 1px solid var(--border); background: transparent; color: var(--fg); }
+.as-snip-cancel:hover { background: var(--hover); }
+.as-snip-use { border: 1px solid var(--accent); background: var(--accent); color: var(--on-accent); }
+.as-snip-bar button:focus-visible { outline: 2px solid var(--fg); outline-offset: 2px; }
+.as-snip-stage { flex: 1; min-height: 0; display: grid; place-items: center; padding: var(--gap-4); }
+.as-snip-frame { position: relative; display: inline-block; max-width: 100%; max-height: 100%; overflow: hidden; cursor: crosshair; touch-action: none; user-select: none; }
+.as-snip-canvas { display: block; width: auto; height: auto; max-width: calc(100vw - 2 * var(--gap-4)); max-height: calc(100vh - 2 * var(--gap-4) - 52px); }
+.as-snip-sel { position: absolute; border: 2px solid var(--accent); box-shadow: 0 0 0 9999px rgba(0,0,0,.55); pointer-events: none; }
 .as-composer:focus-within { border-color: var(--accent); }
-.as-input { flex: 1; min-width: 0; resize: none; border: 0; outline: 0; background: transparent; color: var(--fg); font: inherit; font-size: var(--fs-body); line-height: 1.5; padding: 7px 0; max-height: 160px; }
+.as-input { flex: 1; min-width: 0; resize: none; border: 0; outline: 0; background: transparent; color: var(--fg); font: inherit; font-size: var(--fs-body); line-height: 1.5; padding: 7px 0; max-height: 160px; overflow-y: hidden; }
 .as-composer .mud-button-filled { color: var(--on-accent); }
 .as-input::placeholder { color: var(--placeholder); }
 
@@ -614,7 +746,11 @@ html.nav-loading::before { opacity: 1; transition-delay: 0s; animation: nav-slid
 /* Chips (the filters and the version badges of Options, Extensions) and checkboxes follow the same scale */
 .mud-chip.mud-chip-size-medium { height: 30px; font-size: var(--fs-small); }
 .mud-chip.mud-chip-size-small { height: 24px; font-size: var(--fs-small); }
-.ext-filters .mud-chip { height: 28px; }
+/* The filter row of Extensions: the field, then the chips, 12px apart and 12px above the list (the toolbar rule of the spacing table) */
+.ext-toolbar { display: flex; flex-direction: column; gap: var(--gap-3); margin-bottom: var(--gap-3); }
+.ext-toolbar .mud-input-control { margin: 0; }
+.ext-filters { display: flex; flex-wrap: wrap; gap: var(--gap-2); }
+.ext-filters .mud-chip { height: 28px; margin: 0; }
 .mud-checkbox .mud-button-root { padding: 5px; }
 .mud-checkbox .mud-icon-root { font-size: 1.375rem; }
 /* Toggles: one shape everywhere, the pill of the dark mode switch (a round thumb in a fully rounded track, 40 x 24), at any MudBlazor size, with room

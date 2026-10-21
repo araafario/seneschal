@@ -77,8 +77,8 @@ function Invoke-Seneschal-Install {
     $launcher = Join-Path $InstallDir 'SeneschalApp.exe'
 
     function Stop-Seneschal {
-        # A running copy keeps its files locked
-        if (Test-Path $exe) { & $exe stop *> $null }
+        # A running copy keeps its files locked. A stop that fails is not a reason to stop the install or the uninstall
+        try { if (Test-Path $exe) { & $exe stop *> $null } } catch { }
     }
 
     # The SDK Seneschal installs lives in a folder of its own, so a system install is never touched and removing Seneschal can remove it
@@ -92,6 +92,38 @@ function Invoke-Seneschal-Install {
         [Environment]::SetEnvironmentVariable('Path', ($kept -join ';'), 'User')
     }
 
+    # So Seneschal can be removed again without the repository: a copy of this script and uninstall.cmd next to the app, and an entry in
+    # Settings, Apps. It is only the extra, so a failure here never fails the install
+    $uninstallKey = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\Seneschal'
+    function Register-Uninstall([string]$label) {
+        try {
+            $script = Join-Path $InstallDir 'install.ps1'
+            if ($PSCommandPath -and (Test-Path $PSCommandPath)) {
+                if ((Resolve-Path $PSCommandPath).Path -ine $script) { Copy-Item $PSCommandPath $script -Force }
+            }
+            else {
+                # Run through iex there is no file, so the same script is fetched once more
+                Invoke-WebRequest -Uri "https://raw.githubusercontent.com/$repo/main/install.ps1" -OutFile $script -UseBasicParsing
+            }
+            $cmd = Join-Path $InstallDir 'uninstall.cmd'
+            # The script runs from a copy in TEMP, because it deletes the folder it was started from, and start lets this batch end first: a batch that is still running keeps its folder from being deleted
+            Set-Content -Path $cmd -Encoding ascii -Value @(
+                '@echo off',
+                'copy /y "%~dp0install.ps1" "%TEMP%\seneschal-uninstall.ps1" >nul',
+                "start `"`" powershell -NoProfile -ExecutionPolicy Bypass -File `"%TEMP%\seneschal-uninstall.ps1`" -Uninstall -InstallDir `"$InstallDir`" %*",
+                'exit')
+            New-Item -Path $uninstallKey -Force | Out-Null
+            $values = [ordered]@{
+                DisplayName = 'Seneschal'; DisplayVersion = $label; Publisher = 'Seneschal'; InstallLocation = $InstallDir
+                DisplayIcon = $exe; UninstallString = "`"$cmd`""
+            }
+            foreach ($name in $values.Keys) { New-ItemProperty -Path $uninstallKey -Name $name -Value $values[$name] -PropertyType String -Force | Out-Null }
+            foreach ($name in 'NoModify', 'NoRepair') { New-ItemProperty -Path $uninstallKey -Name $name -Value 1 -PropertyType DWord -Force | Out-Null }
+        }
+        catch {
+            Write-Host "Could not add the uninstaller ($($_.Exception.Message)). Run install.ps1 -Uninstall to remove Seneschal" -ForegroundColor Yellow
+        }
+    }
     # The dotnet that has an SDK of version 10 or newer, or nothing
     function Find-Sdk {
         $exe = Join-Path $sdkDir 'dotnet.exe'
@@ -126,17 +158,25 @@ function Invoke-Seneschal-Install {
     }
 
     if ($Uninstall) {
+        # Started from uninstall.cmd: let it end first, so its folder can be deleted
+        if ($PSCommandPath -like (Join-Path ([IO.Path]::GetTempPath()) '*')) { Start-Sleep -Seconds 1 }
         Stop-Seneschal
         if (Test-Path $InstallDir) { Remove-Item $InstallDir -Recurse -Force }
         Remove-FromPath
         if (Test-Path $sdkDir) { Remove-FromPath $sdkDir; Remove-Item $sdkDir -Recurse -Force }
-        foreach ($link in $shortcut, $desktopShortcut) { if (Test-Path $link) { Remove-Item $link -Force } }
+        foreach ($link in $shortcut, $desktopShortcut) {
+            # Only a shortcut that starts this copy, so a second copy somewhere else keeps its own
+            if ((Test-Path $link) -and ((New-Object -ComObject WScript.Shell).CreateShortcut($link).TargetPath -like (Join-Path $InstallDir '*'))) { Remove-Item $link -Force }
+        }
+        Remove-Item $uninstallKey -Recurse -Force -ErrorAction SilentlyContinue
         if ($RemoveData) {
             $data = if ($env:SENESCHAL_DATA_DIR) { $env:SENESCHAL_DATA_DIR } else { Join-Path $env:APPDATA 'Seneschal' }
             if (Test-Path $data) { Remove-Item $data -Recurse -Force }
         }
         Write-Host 'Seneschal removed'
         if (-not $RemoveData) { Write-Host 'Your data is kept. Add -RemoveData to delete it too' }
+        # Its own window closes when it ends: leave time to read this
+        if ($PSCommandPath -like (Join-Path ([IO.Path]::GetTempPath()) '*')) { Start-Sleep -Seconds 3 }
         return
     }
 
@@ -217,6 +257,8 @@ function Invoke-Seneschal-Install {
                 $link.Save()
             }
         }
+
+        Register-Uninstall $label
 
         if (-not $lite) { Install-Sdk $work }
 

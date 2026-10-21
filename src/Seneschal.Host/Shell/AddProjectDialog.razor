@@ -9,6 +9,7 @@
     </TitleContent>
     <DialogContent>
         <MudTextField T="string" @bind-Value="_path" Immediate="true" Label="Project folder" Placeholder="C:\code\JsonDiff" Variant="Variant.Outlined" Margin="Margin.Dense"
+                      Adornment="@(NativePicker.Available ? Adornment.End : Adornment.None)" AdornmentIcon="@Icons.Material.Outlined.FolderOpen" AdornmentAriaLabel="Browse" OnAdornmentClick="BrowseAsync"
                       HelperText="The folder with the .csproj. Seneschal watches its artifacts\extensions folder and loads every build"
                       Error="@(_error is not null)" ErrorText="@_error" OnKeyDown="OnKey" id="add-project-path" />
     </DialogContent>
@@ -24,6 +25,15 @@
     private string _path = "";
     private string? _error;
 
+    private async Task BrowseAsync()
+    {
+        if (await NativePicker.PickFolderAsync(_path) is { } folder)
+        {
+            _path = folder;
+            _error = null;
+        }
+    }
+
     private void OnKey(KeyboardEventArgs e)
     {
         if (e.Key == "Enter") Add();
@@ -32,6 +42,11 @@
     private void Add()
     {
         if (string.IsNullOrWhiteSpace(_path)) return;
+        if (!HasBuildFolder(_path))
+        {
+            _error = "Not a valid project folder, it has no artifacts\\extensions";
+            return;
+        }
         try
         {
             Watcher.AddFolder(_path);
@@ -40,6 +55,22 @@
         catch (Exception ex) when (ex is InvalidOperationException or ArgumentException or NotSupportedException or IOException)
         {
             _error = ex.Message;
+        }
+    }
+
+    /// <summary>A project folder has artifacts\extensions inside it (made by its first build). The build folder itself is fine too.</summary>
+    private static bool HasBuildFolder(string path)
+    {
+        try
+        {
+            var full = Path.GetFullPath(path.Trim().Trim('"'));
+            return Directory.Exists(Path.Combine(full, "artifacts", "extensions"))
+                || (Directory.Exists(full) && Path.GetFileName(full.TrimEnd(Path.DirectorySeparatorChar)).Equals("extensions", StringComparison.OrdinalIgnoreCase)
+                    && Path.GetFileName(Path.GetDirectoryName(full.TrimEnd(Path.DirectorySeparatorChar)) ?? "").Equals("artifacts", StringComparison.OrdinalIgnoreCase));
+        }
+        catch (Exception ex) when (ex is ArgumentException or NotSupportedException or PathTooLongException)
+        {
+            return false;
         }
     }
 

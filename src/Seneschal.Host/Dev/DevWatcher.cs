@@ -16,6 +16,9 @@ public sealed class DevWatcher(ExtensionStartup startup, DllExtensions extension
     private static readonly TimeSpan Settle = TimeSpan.FromMilliseconds(1200);
 
     private readonly Dictionary<string, FileSystemWatcher> _watchers = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>Project folders that were let go of (see <see cref="Release"/>), and until when the loop that looks for folders must leave them alone.</summary>
+    private readonly Dictionary<string, DateTime> _released = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, CancellationTokenSource> _waiting = new(StringComparer.OrdinalIgnoreCase);
     private readonly SemaphoreSlim _one = new(1, 1);
     private bool _restarting;
@@ -54,7 +57,8 @@ public sealed class DevWatcher(ExtensionStartup startup, DllExtensions extension
     {
         if (string.IsNullOrWhiteSpace(path)) throw new InvalidOperationException("Give the folder");
         var full = System.IO.Path.GetFullPath(path.Trim().Trim('"'));
-        if (Directory.Exists(full) && Directory.GetFiles(full, "*.csproj").Length > 0)
+        // A project folder (a .csproj, or a build folder already made by it) means the folder its build stages into
+        if (Directory.Exists(full) && (Directory.GetFiles(full, "*.csproj").Length > 0 || Directory.Exists(System.IO.Path.Combine(full, "artifacts", "extensions"))))
             full = System.IO.Path.Combine(full, "artifacts", "extensions");
         ui.AddDevFolder(full);
         return full;
@@ -87,6 +91,27 @@ public sealed class DevWatcher(ExtensionStartup startup, DllExtensions extension
     private void OnSettingsChanged() => _ = Task.Run(Attach);
 
     /// <summary>Starts watching the folders that are there and not watched yet, and stops watching the ones that are no longer in the list.</summary>
+    /// <summary>
+    /// Lets go of the watched folders inside a project that is about to be moved or deleted: Windows will not rename a folder that holds one that
+    /// is being watched. They are left alone for a short while, so the loop that looks for folders does not take them again before the move is done.
+    /// </summary>
+    public void Release(string projectFolder)
+    {
+        var prefix = Path.GetFullPath(projectFolder).TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar;
+        lock (_watchers)
+        {
+            foreach (var key in _watchers.Keys.Where(k => Path.GetFullPath(k).StartsWith(prefix, StringComparison.OrdinalIgnoreCase)).ToList())
+            {
+                _watchers[key].Dispose();
+                _watchers.Remove(key);
+            }
+            _released[prefix] = DateTime.UtcNow.AddSeconds(20);
+        }
+    }
+
+    private bool IsReleased(string folder) =>
+        _released.Any(r => r.Value > DateTime.UtcNow && Path.GetFullPath(folder).StartsWith(r.Key, StringComparison.OrdinalIgnoreCase));
+
     private void Attach()
     {
         lock (_watchers)
@@ -97,7 +122,7 @@ public sealed class DevWatcher(ExtensionStartup startup, DllExtensions extension
                 _watchers[gone].Dispose();
                 _watchers.Remove(gone);
             }
-            foreach (var folder in wanted.Where(f => !_watchers.ContainsKey(f) && Directory.Exists(f)))
+            foreach (var folder in wanted.Where(f => !_watchers.ContainsKey(f) && Directory.Exists(f) && !IsReleased(f)))
                 Watch(folder, catchUp: _atStart?.Contains(folder) != true);
         }
     }
