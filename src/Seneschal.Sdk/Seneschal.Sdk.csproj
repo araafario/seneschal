@@ -16,6 +16,8 @@
     <PackageId>Seneschal.Sdk</PackageId>
     <Title>Seneschal SDK</Title>
     <Authors>araafario</Authors>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <Copyright>Copyright (c) 2026 Araaf Ario</Copyright>
     <Description>Build tools for Seneschal, the local developer toolbelt. Gives an extension its types (IToolModule, ToolMetadata, IToolMcp) and the build rules that stage it and pack it as a .snx file to import in the Extension Manager.</Description>
     <PackageTags>seneschal;extension;blazor;mudblazor;mcp</PackageTags>
     <PackageProjectUrl>https://github.com/araafario/seneschal</PackageProjectUrl>

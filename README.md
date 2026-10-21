@@ -14,6 +14,7 @@
   <a href="https://github.com/araafario/seneschal/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/araafario/seneschal/actions/workflows/ci.yml/badge.svg"></a>
   <img alt="Windows" src="https://img.shields.io/badge/platform-Windows-0078D4">
   <img alt=".NET 10" src="https://img.shields.io/badge/.NET-10-512BD4">
+  <a href="LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-green"></a>
   <img alt="MCP" src="https://img.shields.io/badge/MCP-server-444">
 </p>
 
@@ -134,6 +135,10 @@ It runs quietly in the background. There is no console window to keep open, and 
 | [UI guidelines](docs/ui-guidelines.md) | How everything looks, reads and behaves, and the list of things it avoids |
 | [Quality notes](docs/qa) | The plans used to audit the UI and test the behavior, and what lacks |
 | [Extension SDK](src/Seneschal.Sdk/README.md) &nbsp;·&nbsp; [The app](src/Seneschal.Host/README.md) | Module references |
+
+## License
+
+[MIT](LICENSE). Use it, change it, share it. An extension you make is yours, under whatever license you choose.
 
 <br>
 
