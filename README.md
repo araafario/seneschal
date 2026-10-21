@@ -27,7 +27,7 @@
 </p>
 
 <p align="center">
-  <img src="docs/images/hero.png" alt="Seneschal with the assistant asking which group a new tool belongs in" width="900">
+  <img src="docs/images/demo.gif" alt="Asking the assistant for a JSON compare tool: it asks two questions, builds it, and the tool appears in the sidebar" width="900">
 </p>
 
 ## Does this sound like your week
@@ -43,39 +43,29 @@
 
 Seneschal is a frame: a sidebar, a search, Options, an assistant and an MCP server. It ships with no tools on purpose. Every tool is an **extension** you import, build or ask for, and remove when you stop needing it.
 
-<table>
-<tr>
-<td width="50%"><img src="docs/images/home.png" alt="Home, with tools grouped and a Get Started list"></td>
-<td width="50%"><img src="docs/images/options-extensions.png" alt="Options, Extensions"></td>
-</tr>
-<tr>
-<td><sub><b>Home.</b> Your tools by group, favorites on top, and a short list to get started.</sub></td>
-<td><sub><b>Extensions.</b> Turn a tool off to hide it. Import one you were given.</sub></td>
-</tr>
-</table>
+<p align="center">
+  <img src="docs/images/hero.png" alt="Home with a tool the assistant just built, and the assistant open beside it" width="900"><br>
+  <sub><b>Home.</b> Your tools by group, favorites on top, a short list to get started, and the assistant one key away.</sub>
+</p>
 
 A few things you will notice:
 
 - **Nothing to restart.** An extension loads, updates and unloads live.
 - **Keyboard first.** `Ctrl+K` goes to the search, `Ctrl+J` to the assistant, `Esc` closes any dialog.
-- **Light and dark**, and a sidebar that becomes a rail in a narrow window.
+- **Light and dark**, your choice of font, and a sidebar that becomes a rail in a narrow window.
 - **Small on purpose.** Short labels, no decoration, one accent color. The [UI guidelines](docs/ui-guidelines.md) say what it avoids and why.
 
 ## Claude and MCP
 
-<table>
-<tr>
-<td width="50%"><img src="docs/images/options-mcp.png" alt="Options, MCP, with the address and a ready setup for each client"></td>
-<td width="50%"><img src="docs/images/options-instructions.png" alt="Options, Instructions, where the assistant's character and lessons can be edited"></td>
-</tr>
-<tr>
-<td><sub><b>MCP.</b> The address, the secret, and a setup to paste for Claude Code, Cursor, VS Code and Claude Desktop.</sub></td>
-<td><sub><b>Instructions.</b> Read and edit how the assistant talks and what it has learned.</sub></td>
-</tr>
-</table>
+<p align="center">
+  <img src="docs/images/options-mcp.png" alt="Options, MCP, with the address and a ready setup for each client" width="900"><br>
+  <sub><b>MCP.</b> The address, the secret, and a setup to paste for Claude Code, Cursor, VS Code and Claude Desktop.</sub>
+</p>
 
 - **An assistant on every page.** It runs the Claude Code you already have signed in, so there is no extra account or key.
-- **It asks with choices.** When there are a few clear options it shows them as a card you click, instead of a question you have to answer in words.
+- **It asks with choices.** When there are a few clear options it shows them as a card you click, instead of a question you have to answer in words. If you are away, it can wait, give up after a time you set, or take the answer it recommends.
+- **It can see.** Paste, drop or pick up to four pictures, or press *Snip the screen* to send a part of Seneschal's own window. Click any picture in the chat to see it large.
+- **It sits where you want it.** Floating over the page, or docked as a sidebar you can resize.
 - **It learns.** When you correct it, it writes one line to a list of lessons that you can read and edit. It can also edit its own character, and you are asked before it does.
 - **An MCP server.** Every tool is offered at `http://localhost:5380/mcp`, to the built-in assistant and to any client you connect. A tool that is turned off is not offered.
 - **Every feature is a tool.** What you can click, Claude can do. An extension adds its tools with one interface.
@@ -95,17 +85,17 @@ See [the assistant guide](docs/assistant.md) for models, history, safety and usi
 Three ways, from least to most work:
 
 1. **Ask.** Open the assistant and choose *Help me create a new extension*. It asks what the tool should do, writes it, builds it, checks it and loads it.
-2. **Start from a template.** Options, Extension Projects, *New Project*, or `seneschal extension new <Name>`. You get a complete project that already builds.
+2. **Start from a template.** Options, Extension Projects, *New Project* (with a git repository if you want one), or `seneschal extension new <Name>`. You get a complete project that already builds. Projects you already have can be added from any folder with *Add Project*.
 3. **Write it.** An extension is a class, a Blazor page and a manifest, built against the [`Seneschal.Sdk`](src/Seneschal.Sdk/README.md) package.
 
 <table>
 <tr>
 <td width="50%"><img src="docs/images/new-project.png" alt="The New Project dialog"></td>
-<td width="50%"><img src="docs/images/options-projects.png" alt="Options, Extension Projects, with several projects loaded"></td>
+<td width="50%"><img src="docs/images/options-projects.png" alt="Options, Extension Projects, with a project loaded"></td>
 </tr>
 <tr>
 <td><sub><b>New Project.</b> A name, a group, an icon.</sub></td>
-<td><sub><b>Projects.</b> Build, and the tool is in the sidebar. With Live Reload on, every build is loaded the moment it ends.</sub></td>
+<td><sub><b>Extension Projects.</b> Build, and the tool is in the sidebar. With Live Reload on, every build is loaded the moment it ends.</sub></td>
 </tr>
 </table>
 
@@ -131,7 +121,7 @@ It runs quietly in the background. There is no console window to keep open, and 
 
 **Is an extension safe?** An extension runs with full access to your machine, like any program you install. Import only the ones you trust. Seneschal asks you to confirm every import.
 
-**Windows only?** For now. It is .NET and Blazor, so the core is portable, but the installer, the launcher and the shell integration are Windows.
+**Windows only?** For now. It is .NET and Blazor, so the core is portable, but the installer, the launcher, the shell integration and the window snip are Windows.
 
 ## Documentation
 
