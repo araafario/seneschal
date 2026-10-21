@@ -6,12 +6,18 @@ name: Release
 on:
   workflow_dispatch:
     inputs:
+      bump:
+        description: What kind of release. Fix is 1.0.4 to 1.0.5, Normal is 1.0.4 to 1.1.0, Breaking is 1.0.4 to 2.0.0. It is counted from the latest release tag
+        required: true
+        type: choice
+        options: [fix, normal, breaking]
+        default: fix
       version:
-        description: Version such as 1.2.0. Leave empty for the number in version.txt plus the run number, for example 1.0.37
+        description: Only to set the number yourself, such as 1.2.0 (the choice above is then ignored). Leave empty to count from the latest release
         required: false
         type: string
       prerelease:
-        description: Mark as a pre-release
+        description: A pre-release (the version gets -beta.<run number> and the release is marked as a pre-release)
         required: false
         type: boolean
         default: false
@@ -28,6 +34,8 @@ jobs:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # the tags, which is where the last version is read from
 
       - uses: actions/setup-dotnet@v4
         with:
@@ -38,10 +46,30 @@ jobs:
         shell: pwsh
         env:
           INPUT_VERSION: ${{ inputs.version }}
+          BUMP: ${{ inputs.bump }}
+          PRERELEASE: ${{ inputs.prerelease }}
         run: |
           $version = "$env:INPUT_VERSION".Trim().TrimStart('v')
-          if (-not $version) { $version = "$((Get-Content version.txt).Trim()).${{ github.run_number }}" }
+          if (-not $version) {
+            # Counted from the latest release (a v1.2.3 tag, pre-releases do not count), so no file has to be changed and committed for a release
+            $latest = git tag --list 'v*' | Where-Object { $_ -match '^v\d+\.\d+\.\d+$' } | ForEach-Object { [version]$_.Substring(1) } | Sort-Object -Descending | Select-Object -First 1
+            # version.txt is the lowest a release can be: raise it (2.0) to start a new major or minor line
+            $parts = (Get-Content version.txt).Trim().Split('.')
+            $floor = [version]"$($parts[0]).$(if ($parts.Count -gt 1) { $parts[1] } else { 0 }).0"
+            if (-not $latest) { $next = $floor }
+            else {
+              $next = switch ($env:BUMP) {
+                'breaking' { [version]"$($latest.Major + 1).0.0" }
+                'normal' { [version]"$($latest.Major).$($latest.Minor + 1).0" }
+                default { [version]"$($latest.Major).$($latest.Minor).$($latest.Build + 1)" }
+              }
+              if ($floor -gt $next) { $next = $floor }
+            }
+            $version = "$next"
+            if ($env:PRERELEASE -eq 'true') { $version += "-beta.${{ github.run_number }}" }
+          }
           if ($version -notmatch '^\d+\.\d+\.\d+(-[0-9A-Za-z.-]+)?$') { throw "'$version' is not a version such as 1.2.0" }
+          if (git tag --list "v$version") { throw "v$version already exists. Pick another version" }
           "version=$version" >> $env:GITHUB_OUTPUT
           Write-Host "Releasing $version"
 
@@ -90,6 +118,6 @@ jobs:
         run: |
           $version = '${{ steps.version.outputs.version }}'
           $flags = @()
-          if ('${{ inputs.prerelease }}' -eq 'true' -or $version.Contains('-')) { $flags += '--prerelease' }
+          if ($version.Contains('-')) { $flags += '--prerelease' }
           gh release create "v$version" (Get-ChildItem dist | ForEach-Object FullName) --target "${{ github.sha }}" --title "Seneschal $version" --generate-notes @flags
           if ($LASTEXITCODE -ne 0) { throw "Could not create the release (does v$version already exist?)" }

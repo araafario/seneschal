@@ -8,7 +8,7 @@ For people who want to change Seneschal itself or its bundled extensions. To jus
 Seneschal.slnx
 dev.ps1                     build and run from source through the launcher, like an installed copy
 install.ps1, install.cmd    the installer
-version.txt                 major.minor of the app version
+version.txt                 the lowest major.minor a release can have
 src/
   Seneschal.Sdk/            what an extension compiles against
   Seneschal.Host/           the app: shell, sidebar, Options, assistant, MCP endpoint, the seneschal command
@@ -61,19 +61,21 @@ When a page gains a feature, its tool gains an `IToolMcp` entry in the same chan
 
 Pushing releases nothing. On GitHub open **Actions**, **Release**, **Run workflow**.
 
-- Leave the version empty to get `version.txt` plus the run number (`1.0.37`), or type one (`1.2.0`, or `1.2.0-beta.1` for a pre-release).
+- Choose the kind of release: **fix** (`1.0.4` to `1.0.5`), **normal** (to `1.1.0`) or **breaking** (to `2.0.0`). The number is counted from the latest `v*` release tag, so no file is changed or committed for a release. The first release is `1.0.0`.
+- `version.txt` is the lowest a release can be. Raise it (`2.0`) to start a new major or minor line.
+- Type a version (`1.2.0`) only to set the number yourself. Tick **pre-release** for `-beta.<run number>` on the version, marked as a pre-release on GitHub. Pre-releases do not count when the next number is worked out.
 - The workflow builds for Windows x64 and arm64 with .NET included, tags the commit, and attaches the zips, `SHA256SUMS.txt`, `install.ps1` and `install.cmd` to a GitHub Release.
 - Before it publishes anything it opens each zip and stops if the app, its launcher, the SDK or `wwwroot` is missing.
 - A release is made from the commit the workflow is started on, so commit and push what you want in it first.
 - The **CI** workflow builds, packs the SDK and checks the package, on every push and pull request. It publishes nothing.
 
-The app version is passed to the build as `-p:AppVersion=...` and shows in `seneschal version`. A build on a developer machine says `0.0.0-dev`. Change `version.txt` for a new major or minor. The SDK keeps its own version in its project file.
+The app version is passed to the build as `-p:AppVersion=...` and shows in `seneschal version`. A build on a developer machine says `0.0.0-dev`. The SDK keeps its own version in its project file.
 
 ## Publishing the SDK
 
 `Seneschal.Sdk` is on nuget.org so extensions can live in their own repositories. Pushing it is a manual workflow, **Actions**, **Publish SDK**, which uses nuget.org **trusted publishing**: there is no API key to keep. One time setup:
 
-1. On nuget.org, open your profile, **Trusted Publishing**, and add a policy: the repository owner and name as on GitHub, the workflow file `publish-sdk.yml`, and no environment.
+1. On nuget.org, open your profile, **Trusted Publishing**, and add a policy: the repository owner and name as on GitHub, the workflow file `publish-sdk.yml`, and the environment `production` (the job uses it, and the two must match). GitHub makes the environment on the first run; add a required reviewer in **Settings, Environments, production** if a push should need approval.
 2. In the repository settings, add the secret `NUGET_USER` with your nuget.org user name (the profile name, not the email address).
 
 Then run the workflow. Leave the version empty to use `<Version>` from `src/Seneschal.Sdk/Seneschal.Sdk.csproj`, or type one (`1.2.0-beta.1` for a pre-release). A version can only be pushed once, so raise it in the project file first. The workflow checks that the build rules are inside the package before it pushes, and keeps the package as a download of the run. Untick **Publish** to only build it.

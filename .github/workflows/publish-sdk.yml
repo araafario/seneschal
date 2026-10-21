@@ -5,7 +5,7 @@ name: Publish SDK
 # It uses nuget.org trusted publishing, so there is no API key to store or rotate: the workflow proves who it is to GitHub, nuget.org
 # trusts that proof for this repository and this file name, and hands back a key that lasts a few minutes. For that to work:
 #   1. On nuget.org, open your profile, Trusted Publishing, and add a policy for this repository
-#      (repository owner and name as on GitHub, workflow file: publish-sdk.yml, no environment).
+#      (repository owner and name as on GitHub, workflow file: publish-sdk.yml, environment: production, the same name as the job below uses).
 #   2. In this repository add a secret NUGET_USER with your nuget.org user name (the profile name, not the email address).
 # A version can only be pushed once. Change <Version> in src/Seneschal.Sdk/Seneschal.Sdk.csproj, or type one below.
 on:
@@ -32,6 +32,9 @@ concurrency:
 jobs:
   publish:
     runs-on: ubuntu-latest
+    # Must match the Environment of the nuget.org policy, or the login is refused. GitHub creates it on the first run; add a required reviewer
+    # to it (Settings, Environments, production) if a push to nuget.org should need a second person's approval
+    environment: production
     steps:
       - uses: actions/checkout@v4
 
